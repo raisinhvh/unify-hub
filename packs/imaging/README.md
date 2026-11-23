@@ -31,4 +31,4 @@ Headless image editing with ImageMagick: trim, resize, pad, outline, drop shadow
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script. The **Finish setup** checklist (from `setup.json`) lists the image tools to install: ImageMagick 7 (required) and optional extras.

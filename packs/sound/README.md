@@ -25,4 +25,4 @@ Find, create, shape and export game sound effects. Workflow: find (sound_search_
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script. The **Finish setup** checklist (from `setup.json`) lists Python, ffmpeg and the `sound_setup` steps.

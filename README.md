@@ -15,7 +15,8 @@ Packs in this repository:
 | Roblox | Studio | 25 |
 | Sound | Media | 13 |
 
-Tool counts are in `index.json`; every pack ships `pack.ts`, its `README.md` and nothing else.
+Tool counts are in `index.json`. Every pack ships `pack.ts` and its `README.md`; packs that need setup also
+ship `setup.json`, an install script, and any companion files `setup.json` lists.
 
 ## Install a pack from Unify
 
@@ -23,8 +24,10 @@ Tool counts are in `index.json`; every pack ships `pack.ts`, its `README.md` and
 2. Pick a pack, read its details and choose **Install** (this device, or all devices where Unify is set up).
 3. Unify downloads `packs/<pack-id>/pack.ts`, compiles it, writes the pack to your toolpacks folder and runs
    the pack's install script if it has one (`install.js`, `install.ps1` or `install.sh`).
-4. Enable the pack on the Toolpacks screen. Packs that drive a desktop app (Blender, Figma, Premiere,
-   Roblox Studio) need that app installed, and its bridge add-on or plugin installed once from the pack.
+   The script runs with Unify's Node (`ELECTRON_RUN_AS_NODE`), in the pack folder, with `UNIFY_PACK_DIR` set.
+   It does what it can by itself, e.g. copying the Roblox Studio plugin or installing the Blender add-on.
+4. Unify shows a **Finish setup** checklist from the pack's `setup.json`: automatic steps say whether they
+   worked, and manual steps (importing the Figma plugin, pairing Studio) say exactly what to do.
 
 An installed pack records its Hub id and version in `meta.json`. Installing again replaces the pack and
 keeps its enabled setting.
@@ -35,6 +38,8 @@ keeps its enabled setting.
 index.json                     the catalogue: packs, categories, featured, devices
 packs/<pack-id>/pack.ts        the toolpack source the app compiles and installs
 packs/<pack-id>/README.md      shown in the Hub detail view
+packs/<pack-id>/setup.json     optional: setup checklist and companion `files` to download
+packs/<pack-id>/install.js     optional: runs after install (install.ps1 / install.sh also work)
 publishers.json                the GitHub accounts allowed to publish
 .github/CODEOWNERS             review ownership
 .github/workflows/guard.yml    rejects pushes and pull requests from other accounts
@@ -43,6 +48,12 @@ publishers.json                the GitHub accounts allowed to publish
 `pack.ts` must `export default` an object with a lowercase `name`, a `description`, and a non-empty `tools`
 array of `{ name, description, run }` entries. Hub ids are lowercase letters, digits and dashes; the
 installed folder name is the same id with dashes replaced by underscores.
+
+`setup.json` is `{ "files"?: string[], "steps": Step[] }`. `files` are plain file names in the pack folder that
+Unify downloads with the pack. Each step is `{ id, title, detail?, kind: "auto" | "manual", copy?, open?,
+check?: { exists }, platforms? }`. `detail`, `copy`, `open` and `check.exists` expand `${PACK}`, `${HOME}` and
+environment variables such as `${LOCALAPPDATA}`. An automatic step with `check` is done when that path
+exists; without one, it is done when the install script exited with code 0.
 
 ## Publishing
 

@@ -24,4 +24,4 @@ Inspect and edit open Figma design files through the DSH Bridge development plug
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which writes the DSH Bridge development plugin into the pack's data folder. The **Finish setup** checklist (from `setup.json`) shows how to import the plugin in Figma and pair it.

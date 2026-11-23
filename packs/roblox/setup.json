@@ -1,0 +1,34 @@
+{
+	"files": ["DSHBridge.server.lua"],
+	"steps": [
+		{
+			"id": "install-plugin",
+			"title": "Install the Studio plugin",
+			"detail": "Unify copies DSHBridge.server.lua into Roblox Studio's Plugins folder.",
+			"kind": "auto",
+			"check": { "exists": "${LOCALAPPDATA}/Roblox/Plugins/DSHBridge.server.lua" },
+			"platforms": ["win32"]
+		},
+		{
+			"id": "install-plugin-mac",
+			"title": "Install the Studio plugin",
+			"detail": "Unify copies DSHBridge.server.lua into Roblox Studio's Plugins folder.",
+			"kind": "auto",
+			"check": { "exists": "${HOME}/Documents/Roblox/Plugins/DSHBridge.server.lua" },
+			"platforms": ["darwin"]
+		},
+		{
+			"id": "pair",
+			"title": "Connect Studio to Unify",
+			"detail": "Restart Studio and open your place. Open Plugins > DSH > DSHBridge, type the pairing code from the Roblox toolpack card (all of it if it shows CODE:PORT), and allow HTTP requests to 127.0.0.1 when Studio asks. The first playtest asks once more; allow that too.",
+			"kind": "manual"
+		},
+		{
+			"id": "open-cloud",
+			"title": "Add an Open Cloud key (optional)",
+			"detail": "Only needed for uploads, game passes and developer products. Create a key under Open Cloud > API Keys with Assets, Game passes and Developer products read/write, then ask an agent to run roblox_cloud_config to see where to save it. Never paste the key into a chat.",
+			"kind": "manual",
+			"open": "https://create.roblox.com/dashboard/credentials"
+		}
+	]
+}

@@ -38,4 +38,4 @@ Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, i
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which installs the DSH Bridge CEP panel into Adobe's extensions folder and turns on PlayerDebugMode so the unsigned panel can load (this allows every unsigned CEP panel). The **Finish setup** checklist (from `setup.json`) covers opening the panel.

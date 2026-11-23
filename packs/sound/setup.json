@@ -1,0 +1,39 @@
+{
+	"steps": [
+		{
+			"id": "python",
+			"title": "Install Python 3.10 to 3.12",
+			"detail": "The sound tools run in their own Python environment. Python 3.13 and newer are not supported yet.",
+			"kind": "manual",
+			"open": "https://www.python.org/downloads/"
+		},
+		{
+			"id": "ffmpeg",
+			"title": "Install ffmpeg",
+			"detail": "Needed to export .ogg and .mp3. Run this in a terminal, then restart Unify.",
+			"kind": "manual",
+			"copy": "winget install Gyan.FFmpeg"
+		},
+		{
+			"id": "core-tier",
+			"title": "Set up the sound tools",
+			"detail": "Ask an agent to run sound_setup with tier \"core\". It builds the Python environment in the background; sound_status shows when it's done.",
+			"kind": "manual",
+			"copy": "Run sound_setup with tier core, then wait for it with sound_job."
+		},
+		{
+			"id": "ai-tier",
+			"title": "Add AI sound generation (optional)",
+			"detail": "About 5 GB. Run sound_setup with tier \"ai\", accept the model licence on Hugging Face, then save a read token with sound_config hfToken.",
+			"kind": "manual",
+			"open": "https://huggingface.co/stabilityai/stable-audio-3-small-sfx"
+		},
+		{
+			"id": "freesound",
+			"title": "Add a Freesound key (optional)",
+			"detail": "Lets agents search Freesound's CC0 library. Save the key with sound_config freesoundToken.",
+			"kind": "manual",
+			"open": "https://freesound.org/apiv2/apply"
+		}
+	]
+}

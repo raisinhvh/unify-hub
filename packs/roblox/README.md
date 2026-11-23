@@ -37,4 +37,4 @@ Inspect and run Luau, edit scripts, capture viewport images (saved as PNG or upl
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. It also downloads `DSHBridge.server.lua` and runs `install.js`, which copies the plugin into Roblox Studio's Plugins folder. The **Finish setup** checklist (from `setup.json`) covers pairing Studio and the optional Open Cloud key.

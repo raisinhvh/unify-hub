@@ -29,4 +29,4 @@ Inspect and edit open Blender sessions: run Python (bpy), browse the scene, read
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which finds Blender and installs and enables the DSH Bridge add-on with a headless Blender run. If Blender is not found, the **Finish setup** checklist (from `setup.json`) shows how to install the add-on by hand.
