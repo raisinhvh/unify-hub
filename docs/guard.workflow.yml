@@ -1,0 +1,29 @@
+name: Publisher guard
+
+# Only the accounts listed in publishers.json may push or open pull requests. The app only reads this
+# repository, so every write comes from a person and must be checked here.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  publishers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the actor against publishers.json
+        env:
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ ! -f publishers.json ]; then
+            echo "::error::publishers.json is missing; nobody may publish."
+            exit 1
+          fi
+          if ! jq -e --arg actor "$ACTOR" '.publishers | index($actor)' publishers.json > /dev/null; then
+            echo "::error::$ACTOR is not a listed publisher. Only approved accounts may push or open pull requests."
+            exit 1
+          fi
+          echo "$ACTOR is a listed publisher."

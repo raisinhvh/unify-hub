@@ -1,0 +1,28 @@
+# Sound
+
+Find, create, shape and export game sound effects. Workflow: find (sound_search_roblox -> use rbxassetid://<id> directly, or sound_fetch; sound_search_freesound (CC0 only) -> sound_fetch) or create (sound_generate = local AI text-to-SFX, sound_synth = code synthesis recipes) -> sound_process / sound_mix -> sound_analyze -> sound_export -> roblox_create to upload. Agents cannot hear: judge sounds with the analyze numbers and the waveform/spectrogram PNG, and use send_media so the user can listen before anything is uploaded. Every written file gets a <file>.sfxinfo provenance sidecar (source, licence, args). Slow work runs as jobs (sound_job). First run sound_status / sound_setup.
+
+- Author: raisinhvh
+- Version: 1.0.0
+- Category: Media
+- License: MIT
+
+## Tools
+
+- `sound_status` — Show the sound environment: Python, installed tiers, worker, ffmpeg, GPU, AI model cache, which keys are set, output folder and running jobs, plus the next setup step.
+- `sound_config` — Show or set stored settings: freesoundToken (free key from https://freesound.org/apiv2/apply), hfToken (Hugging Face read token for Stable Audio 3), robloxApiKey (needs Asset Delivery read for sound_fetch of rbx: ids; defaults to the roblox toolpack key), outputDir (absolute; default output folder). clear lists keys to remove. Secrets are never shown in full. Env vars DSH_FREESOUND_TOKEN / HF_TOKEN override stored tokens.
+- `sound_setup` — Install the Python environment as a job: tier "core" (venv + numpy, scipy, soundfile, pedalboard, pyloudnorm, matplotlib; needed by synth/process/mix/analyze) or "ai" (torch + Stable Audio 3 + CLAP, ~5 GB; needed by generate and prompt scoring; requires core). Returns a job id when it takes longer than ~40 s.
+- `sound_job` — Without id: list sound jobs. With id: wait (default 40 s, max 45) and return the job's result exactly as the original tool would, or its progress. cancel: true stops it (worker jobs stop the Python worker, failing its other in-flight jobs).
+- `sound_search_roblox` — Search Roblox Creator Store audio (no key needed). One line per hit with rbxassetid://<id>, which can be used in Roblox directly without downloading. Filters are applied client-side across up to 3 pages; pass nextPageToken back as pageToken for more.
+- `sound_search_freesound` — Search Freesound for CC0 (public domain) sounds; needs a free API key (sound_config freesoundToken). One line per hit: fs:<id> ... Download with sound_fetch.
+- `sound_fetch` — Download a found sound to a local file plus a .sfxinfo provenance sidecar (source, author, licence, url), then analyse it. id "fs:<id>" (Freesound CC0 only; HQ OGG preview, ~192 kbps) or "rbx:<id>" (needs a Roblox key with Asset Delivery read; Roblox sounds can also be used directly as rbxassetid://<id>). output: file (extension other than the download's converts via ffmpeg) or folder; default <outputDir>/fetch/.
+- `sound_generate` — AI text-to-SFX with Stable Audio 3 small-sfx (local, ai tier). Writes count variants <output_dir>/<name>_<i>_s<seed>.wav, CLAP-ranked best-first when count > 1, then previews them. Describe the sound concretely (source, material, action, space), e.g. "close pistol gunshot, sharp crack, short indoor reverb tail". Default output_dir <outputDir>/generate/.
+- `sound_synth` — Run a synthesis recipe (Python using `import sfxlib as s`): recipe = absolute .py path, or code = inline module (saved next to the output as <stem>.recipe.py so it is reproducible). The module defines render() -> one file, or RECIPES = {name: fn} -> <output folder>/<name>.wav each (filter with names). Functions return a float array at s.SR (or (audio, rate)); peak must be <= 0 dBFS. Default output <outputDir>/synth/.
+- `sound_process` — Run an effects chain on one file. steps run in order, each {"type": ..., ...params}. Pedalboard: gain(gain_db), highpass/lowpass(cutoff_frequency_hz), highshelf/lowshelf/peak, ladder, compressor, limiter, noise_gate, reverb, delay, chorus, phaser, distortion(drive_db), clipping, bitcrush, pitch_shift(semitones), convolution(impulse_response_filename absolute), mp3_lofi, gsm_lofi, resample_lofi. Built-in: trim{start,end}, trim_silence{threshold_db,keep_ms}, fade{in_ms,out_ms}, pad{before,after} (before reverb/delay so tails survive), reverse, mono, stereo, resample{rate}, speed{factor}, time_stretch{rate,pitch_semitones}, normalize{peak_db} or {lufs}, dc_remove. Default output <outputDir>/process/<input name>.wav.
+- `sound_mix` — Layer sounds into one file: layers [{path, offset (s), gain_db, pan (-1..1; any pan makes the output stereo)}]. Layers are resampled to the output rate (default highest layer rate). normalize_db defaults to -1 (null leaves levels alone). Default output <outputDir>/mix/mix.wav (numbered if taken).
+- `sound_analyze` — The agent's "ears": per-file metrics (duration, rate, channels, peak, LUFS, attack, tail, spectral centroid, low/mid/high energy, warnings like clipping, DC offset or leading silence) plus one waveform + log-frequency spectrogram row per file. prompt (ai tier) adds CLAP similarity of each file to that text. Up to 8 files.
+- `sound_export` — Convert with ffmpeg by output extension: .ogg (libvorbis, quality -1..10, default 6), .mp3 (libmp3lame VBR quality 0..9, lower = better, default 2), .wav (16-bit PCM), .flac (quality = compression level). Optional sampleRate, channels (1|2), loudness (integrated LUFS target, true peak -1 dBFS). Writes a .sfxinfo sidecar. Upload the result with roblox_create.
+
+## Install
+
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script and no dependencies are installed by the Hub.
