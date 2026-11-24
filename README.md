@@ -26,11 +26,23 @@ ship `setup.json`, an install script, and any companion files `setup.json` lists
    the pack's install script if it has one (`install.js`, `install.ps1` or `install.sh`).
    The script runs with Unify's Node (`ELECTRON_RUN_AS_NODE`), in the pack folder, with `UNIFY_PACK_DIR` set.
    It does what it can by itself, e.g. copying the Roblox Studio plugin or installing the Blender add-on.
+   Programs the pack needs (ImageMagick, ffmpeg, Python) are installed with winget/brew/pip when `setup.json`
+   names them; the consent dialog lists each exact command first.
 4. Unify shows a **Finish setup** checklist from the pack's `setup.json`: automatic steps say whether they
    worked, and manual steps (importing the Figma plugin, pairing Studio) say exactly what to do.
 
 An installed pack records its Hub id and version in `meta.json`. Installing again replaces the pack and
 keeps its enabled setting.
+
+## Remove a pack
+
+Removing a pack in Unify stops it, runs its uninstall script if it has one (`uninstall.js`, `uninstall.ps1` or
+`uninstall.sh`, run the same way as the install script), then deletes the pack folder, `data/` included.
+A pack whose install script puts anything outside its own folder must ship an uninstall script that undoes
+exactly that: Roblox removes the Studio plugin, Blender removes the add-on from every Blender version,
+Premiere removes the CEP panel and restores PlayerDebugMode to its value before the install, and Figma
+reminds you to remove the development plugin in Figma. Programs installed through `setup.json` (ImageMagick,
+ffmpeg, Python) stay, since other apps may use them. The install consent dialog shows the uninstall script too.
 
 ## Repository layout
 
@@ -40,6 +52,7 @@ packs/<pack-id>/pack.ts        the toolpack source the app compiles and installs
 packs/<pack-id>/README.md      shown in the Hub detail view
 packs/<pack-id>/setup.json     optional: setup checklist and companion `files` to download
 packs/<pack-id>/install.js     optional: runs after install (install.ps1 / install.sh also work)
+packs/<pack-id>/uninstall.js   optional: runs on removal to undo install.js (uninstall.ps1 / .sh also work)
 publishers.json                the GitHub accounts allowed to publish
 .github/CODEOWNERS             review ownership
 .github/workflows/guard.yml    rejects pushes and pull requests from other accounts
@@ -51,9 +64,16 @@ installed folder name is the same id with dashes replaced by underscores.
 
 `setup.json` is `{ "files"?: string[], "steps": Step[] }`. `files` are plain file names in the pack folder that
 Unify downloads with the pack. Each step is `{ id, title, detail?, kind: "auto" | "manual", copy?, open?,
-check?: { exists }, platforms? }`. `detail`, `copy`, `open` and `check.exists` expand `${PACK}`, `${HOME}` and
-environment variables such as `${LOCALAPPDATA}`. An automatic step with `check` is done when that path
-exists; without one, it is done when the install script exited with code 0.
+check?: { exists?, command? }, install?: { winget?, brew?, pip? }, optional?, platforms? }`. `detail`, `copy`,
+`open` and `check.exists` expand `${PACK}`, `${HOME}` and environment variables such as `${LOCALAPPDATA}`.
+`check.exists` is a path or a list of paths (done when any exists); `check.command` is a program name looked up
+on PATH, the saved Windows PATH, WinGet's Links folder and pip's user Scripts folders. An automatic step with
+`check` is done when it passes; without one, it is done when the install script exited with code 0.
+
+`install` names a package Unify installs itself: `winget` on Windows, `brew` on macOS, otherwise `pip`
+(`python -m pip install --user`). Always give a `check` so an existing install is skipped. Required steps are
+installed during the pack install, after the user agreed to the exact commands in the consent dialog;
+`optional` steps are never installed without a click on their **Install** button and are never shown as failed.
 
 ## Publishing
 

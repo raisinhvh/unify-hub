@@ -61,6 +61,11 @@ function findPython() {
 	return undefined;
 }
 
+function importsWork() {
+	const probe = spawnSync(venvPython, ['-c', 'import numpy, scipy, soundfile, pedalboard, pyloudnorm, matplotlib'], { cwd: dataDir, encoding: 'utf8', windowsHide: true, timeout: 120_000 });
+	return probe.status === 0;
+}
+
 function readJson(file) {
 	try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return {}; }
 }
@@ -87,6 +92,11 @@ function main() {
 	}
 	run(venvPython, ['-m', 'pip', 'install', ...PIP_FLAGS, '--upgrade', 'pip'], 'Updating pip...');
 	run(venvPython, ['-m', 'pip', 'install', ...PIP_FLAGS, ...CORE_PACKAGES], 'Installing the sound libraries (a few minutes the first time)...');
+	// An install that was cut off part-way can leave a library pip thinks is installed but that will not import.
+	if (!importsWork()) {
+		run(venvPython, ['-m', 'pip', 'install', ...PIP_FLAGS, '--force-reinstall', '--no-cache-dir', ...CORE_PACKAGES], 'Repairing the sound libraries...');
+		if (!importsWork()) throw new Error('The sound libraries installed but will not load. Uninstall the Sound pack and install it again.');
+	}
 	tiers.core = { installed: new Date().toISOString() };
 	fs.writeFileSync(tiersFile, JSON.stringify(tiers, null, 2), 'utf8');
 	console.log(`Keys go in ${configFile}.`);

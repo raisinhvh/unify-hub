@@ -345,7 +345,7 @@ const pack: ToolpackDefinition = {
             state.server = server;
             await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(Number(process.env.DSH_PREMIERE_PORT || 0), '127.0.0.1', resolve); }); // 0: any free port; the panel finds it through the discovery file.
             const address = server.address(); state.port = typeof address === 'object' && address ? address.port : 0;
-            const discoveryDir = process.env.DSH_PREMIERE_DISCOVERY_DIR || join(homedir(), '.dsh', 'premiere-bridge');
+            const discoveryDir = process.env.DSH_PREMIERE_DISCOVERY_DIR || join(homedir(), '.unify', 'premiere-bridge');
             await mkdir(discoveryDir, { recursive: true });
             state.discoveryFile = join(discoveryDir, `${process.pid}-${randomBytes(4).toString('hex')}.json`);
             await writeFile(state.discoveryFile, JSON.stringify({ port: state.port, token: state.token, pid: process.pid, bridge: BRIDGE_VERSION }), { encoding: 'utf8', mode: 0o600 });
@@ -445,7 +445,7 @@ const PANEL_FILES: Record<string, string> = {
     var nodeRequire = typeof cep_node !== 'undefined' ? cep_node.require : (typeof require === 'function' ? require : null);
     if (!nodeRequire || typeof __adobe_cep__ === 'undefined') { status.textContent = 'CEP Node integration is unavailable. Check the extension manifest and restart Premiere.'; return; }
     var fs = nodeRequire('fs'), path = nodeRequire('path'), os = nodeRequire('os'), http = nodeRequire('http'), crypto = nodeRequire('crypto');
-    var discoveryDir = path.join(os.homedir(), '.dsh', 'premiere-bridge');
+    var discoveryDir = path.join(os.homedir(), '.unify', 'premiere-bridge');
     var session = crypto.randomBytes(12).toString('hex'), connections = {}, queue = [], busy = false, enabled = true, closed = false;
     var metadata = { version: '', project: '', file: '', sequence: '', bridge: '2' };
     // Keep ScriptPath minimal; load the editing script here so load errors can be caught.

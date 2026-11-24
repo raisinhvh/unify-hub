@@ -56,7 +56,7 @@ interface State {
 
 /** Bump together with ADDON_VERSION inside ADDON_SOURCE whenever the add-on protocol changes. */
 const ADDON_VERSION = 3;
-const DISCOVERY_DIR = join(homedir(), '.dsh', 'blender-bridge');
+const DISCOVERY_DIR = join(homedir(), '.unify', 'blender-bridge');
 /** Healthy sessions always hold a long-poll open, so a short grace period is enough to bridge re-polls. */
 const ONLINE_MS = 6_000;
 const FORGET_MS = 5 * 60_000;
@@ -1348,7 +1348,7 @@ import mathutils
 from mathutils import Matrix, Vector
 
 ADDON_VERSION = 3
-DISCOVERY_DIR = os.path.join(os.path.expanduser("~"), ".dsh", "blender-bridge")
+DISCOVERY_DIR = os.path.join(os.path.expanduser("~"), ".unify", "blender-bridge")
 SESSION = uuid.uuid4().hex[:8]
 MAX_TEXT = 50000
 GEOMETRY = {"MESH", "CURVE", "SURFACE", "META", "FONT", "CURVES", "POINTCLOUD", "VOLUME", "GPENCIL", "GREASEPENCIL"}
