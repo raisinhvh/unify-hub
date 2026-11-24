@@ -3,14 +3,14 @@
 		{
 			"id": "write-plugin",
 			"title": "Prepare the Figma plugin",
-			"detail": "Unify writes the DSH Bridge development plugin into the pack folder.",
+			"detail": "Unify writes the Unify Bridge development plugin into the pack folder.",
 			"kind": "auto",
 			"check": { "exists": "${PACK}/data/plugin/manifest.json" }
 		},
 		{
 			"id": "import-plugin",
 			"title": "Import the plugin in Figma",
-			"detail": "In the Figma desktop app, open any design file, then choose Plugins > Development > Import plugin from manifest... and pick this file. If you imported an older DSH Bridge before, remove it first.",
+			"detail": "In the Figma desktop app, open any design file, then choose Plugins > Development > Import plugin from manifest... and pick this file. If you imported an older Unify Bridge before, remove it first.",
 			"kind": "manual",
 			"copy": "${PACK}/data/plugin/manifest.json",
 			"open": "${PACK}/data/plugin"
@@ -18,7 +18,7 @@
 		{
 			"id": "pair",
 			"title": "Connect Figma to Unify",
-			"detail": "Run Plugins > Development > DSH Bridge, enter the pairing code shown on the Figma toolpack card and press Connect. Keep the plugin window open while agents work.",
+			"detail": "Run Plugins > Development > Unify Bridge, enter the pairing code shown on the Figma toolpack card and press Connect. Keep the plugin window open while agents work.",
 			"kind": "manual"
 		}
 	]

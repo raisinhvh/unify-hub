@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Unify runs this after installing the Figma pack. It writes the bundled DSH Bridge development plugin into the
+ * Unify runs this after installing the Figma pack. It writes the bundled Unify Bridge development plugin into the
  * pack's data folder, using the pack's own figma_install_plugin tool. Importing the plugin into Figma is a manual
  * step: Figma has no API for adding development plugins, so setup.json walks the user through it.
  */
@@ -23,7 +23,7 @@ async function runPackTool(name, args) {
 
 async function main() {
 	await runPackTool('install_plugin', {});
-	console.log(`Wrote the DSH Bridge plugin to ${path.join(packDir, 'data', 'plugin')}.`);
+	console.log(`Wrote the Unify Bridge plugin to ${path.join(packDir, 'data', 'plugin')}.`);
 }
 
 main().then(

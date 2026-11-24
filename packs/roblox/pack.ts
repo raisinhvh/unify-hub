@@ -15,7 +15,7 @@ interface ToolpackDefinition {
     name: string;
     description: string;
     tools: ToolpackTool[];
-    /** dataDir files DSH Config Sync carries to other PCs; secrets stay on each PC. */
+    /** dataDir files Unify Config Sync carries to other PCs; secrets stay on each PC. */
     sync?: { files: string[]; secrets?: string[] };
     setup?(ctx: ToolpackContext): void | Promise<void>;
     teardown?(): void | Promise<void>;
@@ -49,9 +49,9 @@ interface State {
 }
 
 const DEFAULT_PORT = 34872;
-/** Bump together with PROTOCOL_VERSION in DSHBridge.server.lua whenever the command protocol changes. */
+/** Bump together with PROTOCOL_VERSION in UnifyBridge.server.lua whenever the command protocol changes. */
 const PROTOCOL_VERSION = 3;
-/** DSH cuts tool calls off at 60s; every Studio command finishes or fails before this. */
+/** Unify cuts tool calls off at 60s; every Studio command finishes or fails before this. */
 const CALL_BUDGET_MS = 55_000;
 const MAX_QUEUED = 8;
 
@@ -181,7 +181,7 @@ function tokenMatches(header: unknown): boolean {
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (!tokenMatches(req.headers['x-dsh-token'])) {
+    if (!tokenMatches(req.headers['x-unify-token'])) {
         json(res, 401, { error: 'wrong pairing code' });
         return;
     }
@@ -271,7 +271,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * the queue for whatever is left of the call budget, and fails with a "busy" error instead of a timeout.
  */
 function command(place: Place, op: string, args: Record<string, unknown>, timeoutMs = 30_000, queueMs = CALL_BUDGET_MS - timeoutMs, target?: 'client'): Promise<unknown> {
-    if (place.protocol < PROTOCOL_VERSION) return Promise.reject(new Error(`The DSH Bridge plugin in ${place.name} is outdated (protocol ${place.protocol}; this toolpack needs ${PROTOCOL_VERSION}). Copy DSHBridge.server.lua from the Roblox toolpack folder into Studio's Plugins folder, then restart Studio.`));
+    if (place.protocol < PROTOCOL_VERSION) return Promise.reject(new Error(`The Unify Bridge plugin in ${place.name} is outdated (protocol ${place.protocol}; this toolpack needs ${PROTOCOL_VERSION}). Copy UnifyBridge.server.lua from the Roblox toolpack folder into Studio's Plugins folder, then restart Studio.`));
     if (place.queue.length >= MAX_QUEUED) return Promise.reject(new Error(`${busyText(place)}. Wait a few seconds and retry.`));
     const id = state.nextId++;
     const queuedAt = Date.now();
@@ -291,7 +291,7 @@ function command(place: Place, op: string, args: Record<string, unknown>, timeou
 function resolvePlace(args: Record<string, unknown>): Place {
     prunePlaces();
     const places = connectedPlaces();
-    const noConnection = `Roblox Studio is not connected. In Studio open the 'DSH Bridge' plugin widget, enter the pairing code (${state.code}) and make sure HTTP requests are allowed.`;
+    const noConnection = `Roblox Studio is not connected. In Studio open the 'Unify Bridge' plugin widget, enter the pairing code (${state.code}) and make sure HTTP requests are allowed.`;
     const label = (place: Place): string => `${place.name} (placeId: ${place.placeId}, session: ${place.session})`;
     if (!places.length) throw new Error(noConnection);
     const requested = stringArg(args, 'place');
@@ -330,7 +330,7 @@ function contextSchema(viewport = false): Record<string, unknown> {
         type: 'string', enum: ['edit', 'server', 'client'],
         description: '"edit" is the place being edited. During a playtest, "server" and "client" are the live game'
             + (viewport ? '. Default: "server" during a Run-mode test, else "edit". Play-mode tests cannot be captured (Roblox hides the client\'s pixels).'
-                : ' (execute runs as a game script there, sharing the game\'s modules and state). Default: "server" while a playtest is connected to DSH, else "edit".'),
+                : ' (execute runs as a game script there, sharing the game\'s modules and state). Default: "server" while a playtest is connected to Unify, else "edit".'),
     };
 }
 /** The session a context-aware tool talks to. A playtest's client is reached through its server session. */
@@ -343,8 +343,8 @@ function resolveContext(args: Record<string, unknown>, op: string): { place: Pla
     if (op === 'capture_view' && test?.client && requested !== 'edit') throw new Error('capture_view cannot read the viewport during a Play test: Roblox does not expose a play client\'s screenshot pixels. Capture in Run mode or edit mode instead; inspect the live game with execute, tree or properties.');
     const context = (requested ?? (test ? 'server' : 'edit')) as Context;
     if (context === 'edit') return { place, context };
-    if (!test) throw new Error(`No playtest of ${place.name} is connected to DSH, so context "${context}" is unavailable. Start one with roblox_playtest, or omit context.`);
-    if (context === 'client' && !test.client) throw new Error('The playtest has no client connected to DSH. Run mode has no client; in play mode the client connects a few seconds after the start.');
+    if (!test) throw new Error(`No playtest of ${place.name} is connected to Unify, so context "${context}" is unavailable. Start one with roblox_playtest, or omit context.`);
+    if (context === 'client' && !test.client) throw new Error('The playtest has no client connected to Unify. Run mode has no client; in play mode the client connects a few seconds after the start.');
     return { place: test, context, ...(context === 'client' ? { relay: 'client' as const } : {}) };
 }
 function commandAt(args: Record<string, unknown>, op: string, sent: Record<string, unknown>, timeoutMs = 30_000): Promise<unknown> {
@@ -408,7 +408,7 @@ function formatExecute(data: Record<string, unknown>, freshRequested = false): s
     const where = typeof data.context === 'string' ? ` (playtest ${data.context})` : '';
     let freshNote = '';
     if (freshRequested && where) freshNote = 'Note: fresh only applies to the edit context; the playtest uses the game\'s own require cache.';
-    else if (freshRequested && data.fresh !== true) freshNote = 'Note: plugin outdated: reinstall DSHBridge.server.lua for fresh.';
+    else if (freshRequested && data.fresh !== true) freshNote = 'Note: plugin outdated: reinstall UnifyBridge.server.lua for fresh.';
     if (!logs.length && !returns.length) return [`Code executed successfully${where}.`, freshNote].filter(Boolean).join('\n\n');
     const sections: string[] = where ? [`Ran in the playtest ${data.context}.`] : [];
     if (logs.length) sections.push(`Output:\n${logs.join('\n')}`);
@@ -650,7 +650,7 @@ async function saveCaptureImages(images: CaptureImage[], saveDir: string, fileNa
 interface CloudConfig { apiKey?: string; groupId?: string; userId?: string; universeId?: string }
 
 const OPEN_CLOUD = 'https://apis.roblox.com/assets/v1';
-/** Tool calls are cut off by DSH after 60s, so status checks stop waiting a little before that. */
+/** Tool calls are cut off by Unify after 60s, so status checks stop waiting a little before that. */
 const UPLOAD_BUDGET_MS = 45_000;
 /** Background jobs keep going after this; the tool returns a job id for roblox_job_status instead. */
 const JOB_INLINE_WAIT_MS = 40_000;
@@ -690,16 +690,16 @@ async function readCloudConfig(): Promise<CloudConfig> {
     // The install script leaves empty "" placeholders for the user to fill in; treat those as unset.
     const value = (env: string | undefined, saved: unknown): string | undefined => env || (typeof saved === 'string' && saved.trim() ? saved.trim() : undefined);
     return {
-        apiKey: value(process.env.DSH_ROBLOX_API_KEY, stored.apiKey),
-        groupId: value(process.env.DSH_ROBLOX_GROUP_ID, stored.groupId),
-        userId: value(process.env.DSH_ROBLOX_USER_ID, stored.userId),
-        universeId: value(process.env.DSH_ROBLOX_UNIVERSE_ID, stored.universeId),
+        apiKey: value(process.env.UNIFY_ROBLOX_API_KEY, stored.apiKey),
+        groupId: value(process.env.UNIFY_ROBLOX_GROUP_ID, stored.groupId),
+        userId: value(process.env.UNIFY_ROBLOX_USER_ID, stored.userId),
+        universeId: value(process.env.UNIFY_ROBLOX_UNIVERSE_ID, stored.universeId),
     };
 }
 
 async function requireCloud(): Promise<{ apiKey: string; groupId: string; userId?: string }> {
     const config = await readCloudConfig();
-    if (!config.apiKey || !config.groupId) throw new Error(`Open Cloud is not configured. Ask the user to create a key at https://create.roblox.com/dashboard/credentials and paste it, plus their group id (the number in the group's URL), between the quotes of "apiKey" and "groupId" in ${cloudConfigPath()} (or set DSH_ROBLOX_API_KEY and DSH_ROBLOX_GROUP_ID). groupId can also be set with roblox_cloud_config. Use a user-owned key with Assets API read and write; the key's owner needs permission to create assets in the group.`);
+    if (!config.apiKey || !config.groupId) throw new Error(`Open Cloud is not configured. Ask the user to create a key at https://create.roblox.com/dashboard/credentials and paste it, plus their group id (the number in the group's URL), between the quotes of "apiKey" and "groupId" in ${cloudConfigPath()} (or set UNIFY_ROBLOX_API_KEY and UNIFY_ROBLOX_GROUP_ID). groupId can also be set with roblox_cloud_config. Use a user-owned key with Assets API read and write; the key's owner needs permission to create assets in the group.`);
     return config as { apiKey: string; groupId: string; userId?: string };
 }
 
@@ -801,7 +801,7 @@ function isStoreKind(type: string | undefined): type is StoreKind { return type 
 
 async function requireApiKey(): Promise<string> {
     const { apiKey } = await readCloudConfig();
-    if (!apiKey) throw new Error(`Open Cloud is not configured. Ask the user to put {"apiKey": "..."} in ${cloudConfigPath()} or set DSH_ROBLOX_API_KEY.`);
+    if (!apiKey) throw new Error(`Open Cloud is not configured. Ask the user to put {"apiKey": "..."} in ${cloudConfigPath()} or set UNIFY_ROBLOX_API_KEY.`);
     return apiKey;
 }
 
@@ -935,7 +935,7 @@ function describeUpload(kind: string, result: UploadResult): string {
 interface Job {
     id: string; kind: string; key?: string; status: 'running' | 'done' | 'failed';
     started: number; finished?: number; lines: string[]; done: Promise<void>;
-    /** Ids the work produced (assetId, inserted paths...), returned as chaining data for DSH batches. */
+    /** Ids the work produced (assetId, inserted paths...), returned as chaining data for Unify batches. */
     data: Record<string, unknown>;
 }
 
@@ -975,7 +975,7 @@ async function awaitJob(job: Job, waitMs = JOB_INLINE_WAIT_MS): Promise<string> 
     return describeJob(job);
 }
 
-/** A tool result with text for the agent and chaining data for DSH batches ("{{1.assetId}}"). */
+/** A tool result with text for the agent and chaining data for Unify batches ("{{1.assetId}}"). */
 function withData(text: string, data: Record<string, unknown>): { content: Array<{ type: 'text'; text: string }>; data: Record<string, unknown> } {
     return { content: [{ type: 'text', text }], data };
 }
@@ -986,7 +986,7 @@ async function awaitJobResult(job: Job, waitMs = JOB_INLINE_WAIT_MS, prefix = ''
     return withData(prefix ? `${prefix}\n${text}` : text, { jobId: job.id, status: job.status, ...job.data });
 }
 
-/** A retry of a call that timed out on the DSH side finds the original job instead of uploading twice. */
+/** A retry of a call that timed out on the Unify side finds the original job instead of uploading twice. */
 function existingJob(key: string): Job | undefined {
     pruneJobs();
     return [...jobs.values()].find(job => job.key === key && (job.status === 'running' || (job.status === 'done' && Date.now() - (job.finished ?? 0) < 10 * 60_000)));
@@ -1016,8 +1016,8 @@ function luaString(text: string): string {
     return `"${text.replace(/[\\"\x00-\x1f\x7f]/g, char => `\\${char.charCodeAt(0).toString().padStart(3, '0')}`)}"`;
 }
 
-/** Same path rules as splitPath in DSHBridge.server.lua, so paths returned by tree/find work everywhere. */
-const LUAU_RESOLVE = `local function dshResolve(path)
+/** Same path rules as splitPath in UnifyBridge.server.lua, so paths returned by tree/find work everywhere. */
+const LUAU_RESOLVE = `local function unifyResolve(path)
 	local separator = string.find(string.gsub(path, "\\\\.", ""), "/", 1, true) and "/" or "."
 	local segments, current, index = {}, {}, 1
 	while index <= #path do
@@ -1050,7 +1050,7 @@ const LUAU_RESOLVE = `local function dshResolve(path)
 end
 `;
 
-const LUAU_BASE64 = `local function dshBase64(data)
+const LUAU_BASE64 = `local function unifyBase64(data)
 	local chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 	local map = {}
 	for i = 1, 64 do map[i - 1] = string.byte(chars, i) end
@@ -1080,7 +1080,7 @@ async function luau(place: Place, code: string, timeoutMs = 30_000): Promise<str
 /** Moves the contents of an uploaded Model asset into Studio and returns the new instance paths. */
 async function insertAsset(place: Place, assetId: string, parent: string): Promise<string[]> {
     return luau(place, `${LUAU_RESOLVE}
-local parent = dshResolve(${luaString(parent)})
+local parent = unifyResolve(${luaString(parent)})
 local InsertService = game:GetService("InsertService")
 local ok, container = pcall(InsertService.LoadAsset, InsertService, ${Number(assetId)})
 if not ok then error("InsertService:LoadAsset(${Number(assetId)}) failed: " .. tostring(container) .. " (new uploads can take a moment, or be held by moderation; retry with roblox_insert_asset)", 0) end
@@ -1140,7 +1140,7 @@ function mul(a: Mat3, b: Mat3): Mat3 {
 function transpose(m: Mat3): Mat3 { return [m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]; }
 
 function readAnimationFile(raw: unknown): AnimationFile {
-    if (!isRecord(raw) || raw.format !== 'dsh-animation' || !Array.isArray(raw.bones) || !Array.isArray(raw.animations)) throw new Error('file is not a dsh-animation JSON file (create one with blender_export_animation).');
+    if (!isRecord(raw) || raw.format !== 'unify-animation' || !Array.isArray(raw.bones) || !Array.isArray(raw.animations)) throw new Error('file is not a unify-animation JSON file (create one with blender_export_animation).');
     return raw as unknown as AnimationFile;
 }
 
@@ -1166,7 +1166,7 @@ function poseFrames(file: AnimationFile, animation: AnimationFile['animations'][
 /** Studs per meter measured from Bone instances in the imported rig that share names with the exported bones. */
 async function measureRigScale(place: Place, rig: string, file: AnimationFile): Promise<number | undefined> {
     const returns = await luau(place, `${LUAU_RESOLVE}
-local rig = dshResolve(${luaString(rig)})
+local rig = unifyResolve(${luaString(rig)})
 local lengths = {}
 for _, bone in rig:GetDescendants() do
 	if bone:IsA("Bone") then table.insert(lengths, bone.Name .. "=" .. tostring(bone.Position.Magnitude)) end
@@ -1183,15 +1183,15 @@ return table.concat(lengths, "\\n")`);
 
 /** Sends large Luau data in pieces that fit the bridge's 200 KB code limit. */
 async function sendChunks(place: Place, key: string, text: string): Promise<void> {
-    await luau(place, `shared.__dshAnim = shared.__dshAnim or {}\nshared.__dshAnim[${luaString(key)}] = {}`);
+    await luau(place, `shared.__unifyAnim = shared.__unifyAnim or {}\nshared.__unifyAnim[${luaString(key)}] = {}`);
     for (let index = 0; index < text.length; index += 120_000) {
-        await luau(place, `table.insert(shared.__dshAnim[${luaString(key)}], ${luaString(text.slice(index, index + 120_000))})`);
+        await luau(place, `table.insert(shared.__unifyAnim[${luaString(key)}], ${luaString(text.slice(index, index + 120_000))})`);
     }
 }
 
 const BLOB_CHUNK = 1024 * 1024;
 
-/** Reads a base64 string stashed in shared.__dshBlob through the bridge's blob op, 1 MB per round trip. */
+/** Reads a base64 string stashed in shared.__unifyBlob through the bridge's blob op, 1 MB per round trip. */
 async function receiveBlob(place: Place, key: string, length: number): Promise<Buffer> {
     let text = '';
     try {
@@ -1209,9 +1209,9 @@ async function receiveBlob(place: Place, key: string, length: number): Promise<B
 }
 
 const BUILD_KFS = `${LUAU_RESOLVE}${LUAU_BASE64}
-local spec = game:GetService("HttpService"):JSONDecode(table.concat(shared.__dshAnim[KEY]))
-shared.__dshAnim[KEY] = nil
-local parent = dshResolve(spec.parent)
+local spec = game:GetService("HttpService"):JSONDecode(table.concat(shared.__unifyAnim[KEY]))
+shared.__unifyAnim[KEY] = nil
+local parent = unifyResolve(spec.parent)
 local existing = parent:FindFirstChild(spec.name)
 if existing and existing:IsA("KeyframeSequence") then existing:Destroy() end
 local kfs = Instance.new("KeyframeSequence")
@@ -1245,9 +1245,9 @@ end
 kfs.Parent = parent
 local encoded = ""
 if spec.upload then
-	encoded = dshBase64(game:GetService("SerializationService"):SerializeInstancesAsync({ kfs }))
-	shared.__dshBlob = shared.__dshBlob or {}
-	shared.__dshBlob[KEY] = encoded
+	encoded = unifyBase64(game:GetService("SerializationService"):SerializeInstancesAsync({ kfs }))
+	shared.__unifyBlob = shared.__unifyBlob or {}
+	shared.__unifyBlob[KEY] = encoded
 end
 return kfs, #encoded`;
 
@@ -1255,10 +1255,10 @@ const pack: ToolpackDefinition = {
     name: 'roblox',
     // Group, user and experience ids follow the user to other PCs; the API key does not.
     sync: { files: ['opencloud.json'], secrets: ['apiKey'] },
-    description: 'Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).',
+    description: 'Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired Unify Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).',
     async setup(ctx) {
         state.ctx = ctx;
-        const envPort = process.env.DSH_ROBLOX_PORT;
+        const envPort = process.env.UNIFY_ROBLOX_PORT;
         state.port = envPort !== undefined && /^\d+$/.test(envPort) && Number(envPort) < 65536 ? Number(envPort) : DEFAULT_PORT;
         const codePath = join(ctx.dataDir, 'pairing-code.txt');
         await mkdir(ctx.dataDir, { recursive: true });
@@ -1350,7 +1350,7 @@ const pack: ToolpackDefinition = {
                 const data = dataRecord(await commandAt(args, 'capture_view', sent, 45_000));
                 if (sent.captureId) return JSON.stringify(data);
                 const result = captureResult(data);
-                if (typeof result === 'string') throw new Error('Studio returned no screenshot views. Update the DSH Bridge plugin.');
+                if (typeof result === 'string') throw new Error('Studio returned no screenshot views. Update the Unify Bridge plugin.');
                 const notes: string[] = [];
                 if (args.saveDir !== undefined) {
                     const paths = await saveCaptureImages(result.images, args.saveDir as string, (args.fileName as string | undefined) ?? 'capture');
@@ -1362,7 +1362,7 @@ const pack: ToolpackDefinition = {
                     const job = startJob(`${assetType} upload`, undefined, async lines => {
                         for (const image of result.images) {
                             const name = result.images.length === 1 ? base : `${base}-${image.viewIndex}-${image.view}`;
-                            const upload = await uploadAsset(image.png, `${name}.png`, 'image/png', assetType, name, 'Captured from Roblox Studio by DSH', Date.now() + JOB_POLL_BUDGET_MS);
+                            const upload = await uploadAsset(image.png, `${name}.png`, 'image/png', assetType, name, 'Captured from Roblox Studio by Unify', Date.now() + JOB_POLL_BUDGET_MS);
                             lines.push(`view ${image.viewIndex}: ${describeUpload(assetType, upload)}`);
                         }
                     });
@@ -1496,7 +1496,7 @@ const pack: ToolpackDefinition = {
                 return places.map(place => {
                     let line = `${place.name} | placeId: ${place.placeId} | session: ${place.session} | last seen: ${Math.floor((Date.now() - place.lastSeen) / 1000)}s ago`;
                     if (place.inflight) line += ` | busy: ${place.inflight.op} (${Math.round((Date.now() - place.inflight.since) / 1000)}s), ${place.queue.length} queued`;
-                    if (place.protocol < PROTOCOL_VERSION) line += ' | plugin outdated: reinstall DSHBridge.server.lua';
+                    if (place.protocol < PROTOCOL_VERSION) line += ' | plugin outdated: reinstall UnifyBridge.server.lua';
                     const test = testSessionFor(place);
                     if (test) line += test.client ? ' | playtest server and client connected' : ' | playtest server connected';
                     return line;
@@ -1566,19 +1566,19 @@ const pack: ToolpackDefinition = {
                     // The test's server copy of the plugin connects within a few seconds; stop works better once it has.
                     const until = Date.now() + 8_000;
                     while (!testSessionFor(place) && Date.now() < until) await new Promise(resolve => setTimeout(resolve, 250));
-                    if (!testSessionFor(place)) notes.push('The playtest server has not connected to DSH yet; stop will fall back to Studio\'s own stop, which may need a manual Stop in Studio.');
+                    if (!testSessionFor(place)) notes.push('The playtest server has not connected to Unify yet; stop will fall back to Studio\'s own stop, which may need a manual Stop in Studio.');
                 }
-                if (action === 'status' && data.running === true) notes.push(testSessionFor(place) ? 'Playtest server connected.' : 'Playtest server not connected to DSH.');
+                if (action === 'status' && data.running === true) notes.push(testSessionFor(place) ? 'Playtest server connected.' : 'Playtest server not connected to Unify.');
                 return [`${textValue(data, 'message')}\nstate: ${textValue(data, 'state')}`, ...notes].join('\n');
             },
         },
         {
             name: 'cloud_config',
-            description: 'Show the Open Cloud setup used by the upload, asset, game pass and developer product tools, or set the group id, the API key owner\'s user id (only needed for roblox_asset_quotas), and the default experience (universeId) for game passes and developer products. The API key itself is never passed through tools: the user puts it in the config file shown here or in DSH_ROBLOX_API_KEY. Environment variables override stored values.',
+            description: 'Show the Open Cloud setup used by the upload, asset, game pass and developer product tools, or set the group id, the API key owner\'s user id (only needed for roblox_asset_quotas), and the default experience (universeId) for game passes and developer products. The API key itself is never passed through tools: the user puts it in the config file shown here or in UNIFY_ROBLOX_API_KEY. Environment variables override stored values.',
             inputSchema: { type: 'object', additionalProperties: false, properties: { groupId: { type: 'string', description: 'Numeric group id that will own uploads.' }, userId: { type: 'string', description: 'Numeric user id of the API key owner.' }, universeId: { type: 'string', description: 'Numeric experience (universe) id for game passes and developer products.' }, clear: { type: 'boolean', description: 'Delete the stored key and ids.' } } },
             async run(args) {
                 const file = cloudConfigPath();
-                if (args.apiKey !== undefined) throw new Error(`For safety the API key is not accepted as a tool argument (it would be stored in the chat transcript). Ask the user to put {"apiKey": "..."} in ${file} or set DSH_ROBLOX_API_KEY. Use a user-owned key with Assets API read and write (plus asset-permissions write for roblox_grant_asset_permission, and game-pass / developer-product read and write on the experience for those items).`);
+                if (args.apiKey !== undefined) throw new Error(`For safety the API key is not accepted as a tool argument (it would be stored in the chat transcript). Ask the user to put {"apiKey": "..."} in ${file} or set UNIFY_ROBLOX_API_KEY. Use a user-owned key with Assets API read and write (plus asset-permissions write for roblox_grant_asset_permission, and game-pass / developer-product read and write on the experience for those items).`);
                 if (args.clear === true) { await rm(file, { force: true }); return `Removed ${file}.`; }
                 const groupId = stringArg(args, 'groupId');
                 const userId = stringArg(args, 'userId');
@@ -1598,10 +1598,10 @@ const pack: ToolpackDefinition = {
                 const config = await readCloudConfig();
                 return [
                     `Config file: ${file}`,
-                    `API key: ${config.apiKey ? `set (…${config.apiKey.slice(-4)})${process.env.DSH_ROBLOX_API_KEY ? ' from DSH_ROBLOX_API_KEY' : ''}` : 'not set'}`,
-                    `Group id: ${config.groupId ?? 'not set'}${process.env.DSH_ROBLOX_GROUP_ID ? ' (from DSH_ROBLOX_GROUP_ID)' : ''}`,
-                    `User id: ${config.userId ?? 'not set'}${process.env.DSH_ROBLOX_USER_ID ? ' (from DSH_ROBLOX_USER_ID)' : ''}`,
-                    `Experience (universeId): ${config.universeId ?? 'not set (game passes and products use the connected Studio experience)'}${process.env.DSH_ROBLOX_UNIVERSE_ID ? ' (from DSH_ROBLOX_UNIVERSE_ID)' : ''}`,
+                    `API key: ${config.apiKey ? `set (…${config.apiKey.slice(-4)})${process.env.UNIFY_ROBLOX_API_KEY ? ' from UNIFY_ROBLOX_API_KEY' : ''}` : 'not set'}`,
+                    `Group id: ${config.groupId ?? 'not set'}${process.env.UNIFY_ROBLOX_GROUP_ID ? ' (from UNIFY_ROBLOX_GROUP_ID)' : ''}`,
+                    `User id: ${config.userId ?? 'not set'}${process.env.UNIFY_ROBLOX_USER_ID ? ' (from UNIFY_ROBLOX_USER_ID)' : ''}`,
+                    `Experience (universeId): ${config.universeId ?? 'not set (game passes and products use the connected Studio experience)'}${process.env.UNIFY_ROBLOX_UNIVERSE_ID ? ' (from UNIFY_ROBLOX_UNIVERSE_ID)' : ''}`,
                 ].join('\n');
             },
         },
@@ -1649,7 +1649,7 @@ const pack: ToolpackDefinition = {
                 const previous = args.force === true ? undefined : existingJob(key);
                 if (previous) return awaitJobResult(previous, undefined, 'This file was already sent (pass force: true to upload it again).');
                 const job = startJob(`${assetType} upload`, key, async (lines, data) => {
-                    const result = await uploadAsset(content, basename(path), kind.mime, assetType, name, stringArg(args, 'description') ?? 'Uploaded by DSH', Date.now() + JOB_POLL_BUDGET_MS);
+                    const result = await uploadAsset(content, basename(path), kind.mime, assetType, name, stringArg(args, 'description') ?? 'Uploaded by Unify', Date.now() + JOB_POLL_BUDGET_MS);
                     Object.assign(data, uploadData(assetType, result));
                     lines.push(describeUpload(assetType, result));
                     if (place && result.assetId) {
@@ -1742,7 +1742,7 @@ const pack: ToolpackDefinition = {
                 if (!Number.isInteger(offset) || offset < 0) throw new Error('pageToken must be the nextPageToken from the previous page.');
                 const records = (await readUploadRecords()).filter(record => type === 'Asset' || record.type === type);
                 const lines = records.slice(offset, offset + pageSize).map(record => `${record.type} ${record.assetId}: "${record.name}" | uploaded ${record.at}`);
-                if (!lines.length) lines.push(`No ${type === 'Asset' ? '' : `${type} `}assets uploaded through DSH${offset ? ' on this page' : ''}. Assets made elsewhere are not listed (Open Cloud has no list endpoint for them); use roblox_get with an id.`);
+                if (!lines.length) lines.push(`No ${type === 'Asset' ? '' : `${type} `}assets uploaded through Unify${offset ? ' on this page' : ''}. Assets made elsewhere are not listed (Open Cloud has no list endpoint for them); use roblox_get with an id.`);
                 if (offset + pageSize < records.length) lines.push(`nextPageToken: ${offset + pageSize}`);
                 return lines.join('\n');
             },
@@ -1988,7 +1988,7 @@ const pack: ToolpackDefinition = {
         },
         {
             name: 'import_animation',
-            description: 'Turn a dsh-animation JSON file (from blender_export_animation) into KeyframeSequences in Studio and upload each as a group Animation asset. Runs as a background job; returns the result, or a job id for roblox_job_status if it takes longer than ~40s. Retrying while it runs returns the same job.',
+            description: 'Turn a unify-animation JSON file (from blender_export_animation) into KeyframeSequences in Studio and upload each as a group Animation asset. Runs as a background job; returns the result, or a job id for roblox_job_status if it takes longer than ~40s. Retrying while it runs returns the same job.',
             inputSchema: {
                 type: 'object', additionalProperties: false, required: ['file'], properties: {
                     place: placeSchema(),
@@ -2056,12 +2056,12 @@ const pack: ToolpackDefinition = {
                         imported.push(entry);
                         if (!upload) continue;
                         const rbxm = await receiveBlob(place, blobKey, Number(encodedLength));
-                        const result = await uploadAsset(rbxm, `${animation.name}.rbxm`, 'model/x-rbxm', 'Animation', animation.name, 'Uploaded by DSH', Date.now() + JOB_POLL_BUDGET_MS);
+                        const result = await uploadAsset(rbxm, `${animation.name}.rbxm`, 'model/x-rbxm', 'Animation', animation.name, 'Uploaded by Unify', Date.now() + JOB_POLL_BUDGET_MS);
                         Object.assign(entry, uploadData('Animation', result));
                         lines.push(`${animation.name}: ${describeUpload('Animation', result)}`);
                         if (result.assetId && animationParent !== undefined) {
                             const [created] = await luau(place, `${LUAU_RESOLVE}
-local parent = dshResolve(${luaString(animationParent)})
+local parent = unifyResolve(${luaString(animationParent)})
 local animation = parent:FindFirstChild(${luaString(animation.name)})
 if not (animation and animation:IsA("Animation")) then
 	animation = Instance.new("Animation")

@@ -170,14 +170,14 @@ function onPath(name: string, envVar: string, folder?: string): string[] {
 
 async function findMagick(): Promise<Magick | undefined> {
     const candidates: string[] = [];
-    if (process.env.DSH_MAGICK_PATH) candidates.push(process.env.DSH_MAGICK_PATH);
+    if (process.env.UNIFY_MAGICK_PATH) candidates.push(process.env.UNIFY_MAGICK_PATH);
     if (process.platform === 'win32') {
         for (const base of [process.env.ProgramFiles, process.env['ProgramFiles(x86)']].filter((item): item is string => !!item)) {
             const versions = (await listDirs(base)).filter(name => /^ImageMagick-7/i.test(name)).sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
             for (const version of versions) candidates.push(join(base, version, 'magick.exe'));
         }
     }
-    candidates.push(...onPath('magick', 'DSH_MAGICK_PATH'));
+    candidates.push(...onPath('magick', 'UNIFY_MAGICK_PATH'));
     const magick = candidates.find(path => existsSync(path));
     if (magick) {
         const version = await run(magick, ['-version'], 10_000);
@@ -185,8 +185,8 @@ async function findMagick(): Promise<Magick | undefined> {
     }
     // Windows ships an unrelated convert.exe (a disk tool), so IM6 names are only trusted elsewhere.
     if (process.platform === 'win32') return undefined;
-    const convert = onPath('convert', 'DSH_CONVERT_PATH').find(path => existsSync(path));
-    const identify = onPath('identify', 'DSH_IDENTIFY_PATH').find(path => existsSync(path));
+    const convert = onPath('convert', 'UNIFY_CONVERT_PATH').find(path => existsSync(path));
+    const identify = onPath('identify', 'UNIFY_IDENTIFY_PATH').find(path => existsSync(path));
     if (!convert || !identify) return undefined;
     const version = await run(convert, ['-version'], 10_000);
     if (version.code !== 0 || !/ImageMagick/i.test(version.stdout)) return undefined;
@@ -202,17 +202,17 @@ async function findOptional(): Promise<Optional> {
         }
     } else pythonScripts.push(join(homedir(), '.local', 'bin', 'rembg'));
     return {
-        pngquant: first(onPath('pngquant', 'DSH_PNGQUANT_PATH', 'pngquant')),
-        oxipng: first(onPath('oxipng', 'DSH_OXIPNG_PATH')),
-        rembg: first([...onPath('rembg', 'DSH_REMBG_PATH'), ...pythonScripts]),
-        realesrgan: first(onPath('realesrgan-ncnn-vulkan', 'DSH_REALESRGAN_PATH', 'realesrgan')),
+        pngquant: first(onPath('pngquant', 'UNIFY_PNGQUANT_PATH', 'pngquant')),
+        oxipng: first(onPath('oxipng', 'UNIFY_OXIPNG_PATH')),
+        rembg: first([...onPath('rembg', 'UNIFY_REMBG_PATH'), ...pythonScripts]),
+        realesrgan: first(onPath('realesrgan-ncnn-vulkan', 'UNIFY_REALESRGAN_PATH', 'realesrgan')),
     };
 }
 
 async function magick(): Promise<Magick> {
     // Re-scan when missing so installing ImageMagick mid-session works without reloading the pack.
     state.magick ??= await findMagick();
-    if (!state.magick) throw new Error('ImageMagick 7 was not found. Install it from https://imagemagick.org/script/download.php#windows (keep "Add application directory to your system path" checked) or set DSH_MAGICK_PATH to magick.exe, then retry.');
+    if (!state.magick) throw new Error('ImageMagick 7 was not found. Install it from https://imagemagick.org/script/download.php#windows (keep "Add application directory to your system path" checked) or set UNIFY_MAGICK_PATH to magick.exe, then retry.');
     return state.magick;
 }
 
@@ -242,9 +242,9 @@ async function identify(args: string[], deadline: Deadline): Promise<string> {
 // ---------- Paths ----------
 
 async function computeRoots(dataDir: string): Promise<string[]> {
-    const raw = [dataDir, process.cwd(), ...(process.env.DSH_IMAGING_ROOTS ?? '').split(delimiter)];
-    // Without explicit roots, allow the user's home folder (which also holds DSH's per-chat working copies).
-    if (!process.env.DSH_IMAGING_ROOTS?.trim()) raw.push(homedir());
+    const raw = [dataDir, process.cwd(), ...(process.env.UNIFY_IMAGING_ROOTS ?? '').split(delimiter)];
+    // Without explicit roots, allow the user's home folder (which also holds Unify's per-chat working copies).
+    if (!process.env.UNIFY_IMAGING_ROOTS?.trim()) raw.push(homedir());
     const roots: string[] = [];
     for (const item of raw) {
         if (!item?.trim() || !isAbsolute(item.trim())) continue;
@@ -276,7 +276,7 @@ async function realOrAncestor(path: string): Promise<string> {
 }
 
 function assertAllowed(real: string, original: string): void {
-    if (!state.roots.some(root => within(real, root))) throw new Error(`${original} is outside the folders this pack may use (${state.roots.join(', ')}). Use a path inside them, or add a folder to the DSH_IMAGING_ROOTS environment variable.`);
+    if (!state.roots.some(root => within(real, root))) throw new Error(`${original} is outside the folders this pack may use (${state.roots.join(', ')}). Use a path inside them, or add a folder to the UNIFY_IMAGING_ROOTS environment variable.`);
     const root = state.roots.find(item => within(real, item))!;
     if (relative(norm(root), norm(real)).split(/[\\/]/).some(part => SENSITIVE_DIR.test(part))) throw new Error(`${original} is inside a protected folder.`);
 }
@@ -371,7 +371,7 @@ async function sizes(files: string[], deadline: Deadline): Promise<Size[]> {
 }
 
 async function previewImage(file: string, deadline: Deadline): Promise<string | undefined> {
-    const temp = join(tmpdir(), `dsh-imaging-${randomBytes(6).toString('hex')}.png`);
+    const temp = join(tmpdir(), `unify-imaging-${randomBytes(6).toString('hex')}.png`);
     try {
         await convert([`${coded(file)}[0]`, '-thumbnail', `${PREVIEW_PX}x${PREVIEW_PX}>`, `PNG32:${temp}`], deadline);
         return (await readFile(temp)).toString('base64');
@@ -380,7 +380,7 @@ async function previewImage(file: string, deadline: Deadline): Promise<string | 
 
 /**
  * Lists written files with size and dimensions, plus a downscaled preview of `previewOf` unless preview:false.
- * `data` lets a DSH batch chain the files, e.g. "{{1.files[0].path}}" as the next tool's input.
+ * `data` lets a Unify batch chain the files, e.g. "{{1.files[0].path}}" as the next tool's input.
  */
 async function done(args: Record<string, unknown>, files: string[], deadline: Deadline, options: { note?: string; previewOf?: string; listLimit?: number } = {}): Promise<unknown> {
     const limit = options.listLimit ?? 40;
@@ -544,7 +544,7 @@ const pack: ToolpackDefinition = {
             async run() {
                 state.magick = await findMagick();
                 state.optional = await findOptional();
-                const lines = [state.magick ? `ImageMagick: ${state.magick.version} (${state.magick.mode}, ${state.magick.convert[0]})` : 'ImageMagick: NOT FOUND - install ImageMagick 7 or set DSH_MAGICK_PATH.'];
+                const lines = [state.magick ? `ImageMagick: ${state.magick.version} (${state.magick.mode}, ${state.magick.convert[0]})` : 'ImageMagick: NOT FOUND - install ImageMagick 7 or set UNIFY_MAGICK_PATH.'];
                 const versions: Array<[keyof Optional, string, string[]]> = [['pngquant', 'pngquant (lossy PNG compression, used by optimize)', ['--version']], ['oxipng', 'oxipng (lossless PNG compression, used by optimize)', ['--version']], ['rembg', 'rembg (remove_background; pip install "rembg[cli]")', []], ['realesrgan', 'realesrgan-ncnn-vulkan (upscale)', []]];
                 for (const [key, label, flag] of versions) {
                     const path = state.optional[key];
@@ -884,7 +884,7 @@ const pack: ToolpackDefinition = {
                 const steps: string[] = [];
                 const ext = extname(file).toLowerCase();
                 state.optional = await findOptional();
-                const temp = join(tmpdir(), `dsh-imaging-${randomBytes(6).toString('hex')}.png`);
+                const temp = join(tmpdir(), `unify-imaging-${randomBytes(6).toString('hex')}.png`);
                 try {
                     if (ext === '.png') {
                         let current = file;
@@ -920,7 +920,7 @@ const pack: ToolpackDefinition = {
             async run(args) {
                 const file = await input(args);
                 state.optional = await findOptional();
-                if (!state.optional.rembg) throw new Error('rembg is not installed. In Unify, open the Imaging pack\'s Finish setup card and choose Install on "Add background removal" (needs Python 3.10+ from https://www.python.org/downloads/). Or run `pip install "rembg[cli]"` in a terminal, or set DSH_REMBG_PATH, then retry.');
+                if (!state.optional.rembg) throw new Error('rembg is not installed. In Unify, open the Imaging pack\'s Finish setup card and choose Install on "Add background removal" (needs Python 3.10+ from https://www.python.org/downloads/). Or run `pip install "rembg[cli]"` in a terminal, or set UNIFY_REMBG_PATH, then retry.');
                 const model = optionalString(args, 'model') ?? 'isnet-general-use';
                 if (!['u2net', 'isnet-general-use', 'isnet-anime', 'birefnet-general', 'u2net_human_seg'].includes(model)) throw new Error('Unknown model.');
                 const output = await outputFor(args, file, '_cutout', '.png');
@@ -939,7 +939,7 @@ const pack: ToolpackDefinition = {
                 const file = await input(args);
                 state.optional = await findOptional();
                 const exe = state.optional.realesrgan;
-                if (!exe) throw new Error(`realesrgan-ncnn-vulkan was not found. The install script puts it in ${join(state.ctx?.dataDir ?? '<pack>/data', 'bin', 'realesrgan')}; open the Imaging pack in Unify and choose Run setup again. Or download the zip from https://github.com/xinntao/Real-ESRGAN/releases, unzip it there (keep its models folder beside the program), or set DSH_REALESRGAN_PATH.`);
+                if (!exe) throw new Error(`realesrgan-ncnn-vulkan was not found. The install script puts it in ${join(state.ctx?.dataDir ?? '<pack>/data', 'bin', 'realesrgan')}; open the Imaging pack in Unify and choose Run setup again. Or download the zip from https://github.com/xinntao/Real-ESRGAN/releases, unzip it there (keep its models folder beside the program), or set UNIFY_REALESRGAN_PATH.`);
                 const scale = integer(args, 'scale', 4, 2, 4);
                 const model = optionalString(args, 'model') ?? 'anime';
                 if (model !== 'anime' && model !== 'photo') throw new Error('model must be anime or photo.');
@@ -948,7 +948,7 @@ const pack: ToolpackDefinition = {
                 const deadline = deadlineFor(args);
                 // Only the anime video model supports 2x/3x natively; photo runs 4x and is scaled down.
                 const [name, native] = model === 'photo' ? ['realesrgan-x4plus', 4] : scale === 4 ? ['realesrgan-x4plus-anime', 4] : ['realesr-animevideov3', scale];
-                const target = native === scale ? output : join(tmpdir(), `dsh-imaging-${randomBytes(6).toString('hex')}.png`);
+                const target = native === scale ? output : join(tmpdir(), `unify-imaging-${randomBytes(6).toString('hex')}.png`);
                 try {
                     const result = await run(exe, ['-i', file, '-o', target, '-s', String(native), '-n', name, '-m', join(dirname(exe), 'models'), '-f', 'png'], deadline.left());
                     if (result.code !== 0 || !existsSync(target)) throw new Error(`Real-ESRGAN failed: ${cleanError(result.stderr)}`);
@@ -1016,7 +1016,7 @@ const pack: ToolpackDefinition = {
                 const output = await outputFor(args, file, '_edit', alphaExt(file));
                 const deadline = deadlineFor(args);
                 // In-between files go next to the output, which is inside the allowed folders.
-                const scratch = join(dirname(output), `.dsh-pipeline-${randomBytes(4).toString('hex')}`);
+                const scratch = join(dirname(output), `.unify-pipeline-${randomBytes(4).toString('hex')}`);
                 await mkdir(scratch, { recursive: true });
                 const notes: string[] = [];
                 try {

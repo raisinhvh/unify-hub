@@ -3,9 +3,9 @@
 		{
 			"id": "install-addon",
 			"title": "Install the Blender add-on",
-			"detail": "Unify finds Blender, installs the DSH Bridge add-on and turns it on. If Blender isn't found, install it by hand: Edit > Preferences > Add-ons > the menu at the top right > Install from Disk..., pick the file below, then tick DSH Bridge.",
+			"detail": "Unify finds Blender, installs the Unify Bridge add-on and turns it on. If Blender isn't found, install it by hand: Edit > Preferences > Add-ons > the menu at the top right > Install from Disk..., pick the file below, then tick Unify Bridge.",
 			"kind": "auto",
-			"copy": "${PACK}/data/dsh_bridge.py"
+			"copy": "${PACK}/data/unify_bridge.py"
 		},
 		{
 			"id": "restart-blender",

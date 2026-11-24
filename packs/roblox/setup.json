@@ -1,26 +1,26 @@
 {
-	"files": ["DSHBridge.server.lua"],
+	"files": ["UnifyBridge.server.lua"],
 	"steps": [
 		{
 			"id": "install-plugin",
 			"title": "Install the Studio plugin",
-			"detail": "Unify copies DSHBridge.server.lua into Roblox Studio's Plugins folder.",
+			"detail": "Unify copies UnifyBridge.server.lua into Roblox Studio's Plugins folder.",
 			"kind": "auto",
-			"check": { "exists": "${LOCALAPPDATA}/Roblox/Plugins/DSHBridge.server.lua" },
+			"check": { "exists": "${LOCALAPPDATA}/Roblox/Plugins/UnifyBridge.server.lua" },
 			"platforms": ["win32"]
 		},
 		{
 			"id": "install-plugin-mac",
 			"title": "Install the Studio plugin",
-			"detail": "Unify copies DSHBridge.server.lua into Roblox Studio's Plugins folder.",
+			"detail": "Unify copies UnifyBridge.server.lua into Roblox Studio's Plugins folder.",
 			"kind": "auto",
-			"check": { "exists": "${HOME}/Documents/Roblox/Plugins/DSHBridge.server.lua" },
+			"check": { "exists": "${HOME}/Documents/Roblox/Plugins/UnifyBridge.server.lua" },
 			"platforms": ["darwin"]
 		},
 		{
 			"id": "pair",
 			"title": "Connect Studio to Unify",
-			"detail": "Restart Roblox Studio and open your place. On the Plugins tab, find the DSH section and click DSHBridge, type the pairing code from the Roblox toolpack card (all of it if it shows CODE:PORT), and allow HTTP requests to 127.0.0.1 when Studio asks. The first playtest asks once more; allow that too.",
+			"detail": "Restart Roblox Studio and open your place. On the Plugins tab, find the Unify section and click UnifyBridge, type the pairing code from the Roblox toolpack card (all of it if it shows CODE:PORT), and allow HTTP requests to 127.0.0.1 when Studio asks. The first playtest asks once more; allow that too.",
 			"kind": "manual"
 		},
 		{

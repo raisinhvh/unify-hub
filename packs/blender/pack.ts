@@ -55,7 +55,7 @@ interface State {
 }
 
 /** Bump together with ADDON_VERSION inside ADDON_SOURCE whenever the add-on protocol changes. */
-const ADDON_VERSION = 3;
+const ADDON_VERSION = 4;
 const DISCOVERY_DIR = join(homedir(), '.unify', 'blender-bridge');
 /** Healthy sessions always hold a long-poll open, so a short grace period is enough to bridge re-polls. */
 const ONLINE_MS = 6_000;
@@ -63,7 +63,7 @@ const FORGET_MS = 5 * 60_000;
 const DEFAULT_TIMEOUT_MS = 50_000;
 /** Blender refuses commands it could only start this close to their deadline, so "never started" reports stay true. */
 const START_GRACE_MS = 2_000;
-/** How long a tool call waits for a background job before handing back its id (DSH stops waiting at 60s). */
+/** How long a tool call waits for a background job before handing back its id (Unify stops waiting at 60s). */
 const JOB_WAIT_MS = 45_000;
 const HEADLESS_TIMEOUT_MS = 10 * 60_000;
 
@@ -184,7 +184,7 @@ function readBody(req: IncomingMessage, limit: number): Promise<string> {
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (req.headers['x-dsh-token'] !== state.token) { json(res, 401, { error: 'wrong token' }); return; }
+    if (req.headers['x-unify-token'] !== state.token) { json(res, 401, { error: 'wrong token' }); return; }
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
 
     if (req.method === 'GET' && url.pathname === '/poll') {
@@ -287,7 +287,7 @@ function busyText(session: Session, id: number): string {
 }
 
 function outdated(session: Session): string {
-    return `This Blender (${label(session)}) runs DSH Bridge add-on v${session.addon || 'unknown'}, but this toolpack needs v${ADDON_VERSION}. Run blender_install_addon, then restart that Blender.`;
+    return `This Blender (${label(session)}) runs Unify Bridge add-on v${session.addon || 'unknown'}, but this toolpack needs v${ADDON_VERSION}. Run blender_install_addon, then restart that Blender.`;
 }
 
 function command(session: Session, op: string, args: Record<string, unknown>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<unknown> {
@@ -342,7 +342,7 @@ async function awaitJob(job: Job, waitMs: number): Promise<unknown> {
 function resolveSession(args: Record<string, unknown>): Session {
     prune();
     const sessions = onlineSessions();
-    if (!sessions.length) throw new Error('No Blender session is connected. Run blender_install_addon once (or enable the "DSH Bridge" add-on in Blender Preferences), then open Blender.');
+    if (!sessions.length) throw new Error('No Blender session is connected. Run blender_install_addon once (or enable the "Unify Bridge" add-on in Blender Preferences), then open Blender.');
     const requested = optionalString(args, 'instance');
     if (requested !== undefined) {
         const needle = requested.toLowerCase();
@@ -405,7 +405,7 @@ async function textCommand(args: Record<string, unknown>, op: string, sent: Reco
 }
 
 /**
- * The add-on's text, plus its `data` (names, files) when it sent some: DSH batches chain that data
+ * The add-on's text, plus its `data` (names, files) when it sent some: Unify batches chain that data
  * ("{{1.files[0]}}") while the agent reads only the text. Older add-ons send text alone.
  */
 function textResult(data: Record<string, unknown>): unknown {
@@ -491,7 +491,7 @@ function executeHint(error: string): string {
 function formatExecute(data: unknown): unknown {
     if (!isRecord(data)) throw new Error('Blender returned an invalid response.');
     const sections: string[] = [];
-    // The error goes first so DSH's output limit never cuts off the traceback.
+    // The error goes first so Unify's output limit never cuts off the traceback.
     const error = typeof data.error === 'string' && data.error ? data.error : '';
     if (error) sections.push(`Error:\n${error}`, executeHint(error));
     if (typeof data.output === 'string' && data.output) sections.push(`Output:\n${data.output}`);
@@ -526,7 +526,7 @@ async function listDirs(dir: string): Promise<string[]> {
 
 async function blenderCandidates(): Promise<string[]> {
     const found: string[] = [];
-    if (process.env.DSH_BLENDER_PATH) found.push(process.env.DSH_BLENDER_PATH);
+    if (process.env.UNIFY_BLENDER_PATH) found.push(process.env.UNIFY_BLENDER_PATH);
     if (process.platform === 'win32') {
         const bases = [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Programs')].filter((base): base is string => !!base);
         for (const base of bases) {
@@ -634,7 +634,7 @@ const pack: ToolpackDefinition = {
         state.ctx = ctx;
         state.token = randomBytes(24).toString('hex');
         await mkdir(ctx.dataDir, { recursive: true });
-        await writeFile(join(ctx.dataDir, 'dsh_bridge.py'), ADDON_SOURCE, 'utf8');
+        await writeFile(join(ctx.dataDir, 'unify_bridge.py'), ADDON_SOURCE, 'utf8');
         const server = createServer((req, res) => {
             void handle(req, res).catch((error: unknown) => {
                 ctx.log(`Bridge request failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -644,7 +644,7 @@ const pack: ToolpackDefinition = {
         state.server = server;
         await new Promise<void>((resolve, reject) => {
             server.once('error', error => reject(new Error(`Could not start the Blender bridge: ${error.message}`)));
-            server.listen(Number(process.env.DSH_BLENDER_PORT) || 0, '127.0.0.1', () => resolve());
+            server.listen(Number(process.env.UNIFY_BLENDER_PORT) || 0, '127.0.0.1', () => resolve());
         });
         const address = server.address();
         state.port = typeof address === 'object' && address ? address.port : 0;
@@ -687,7 +687,7 @@ const pack: ToolpackDefinition = {
             run() {
                 prune();
                 const sessions = onlineSessions();
-                if (!sessions.length) return 'No Blender session is connected. Run blender_install_addon once, then open Blender (the "DSH Bridge" add-on connects automatically).';
+                if (!sessions.length) return 'No Blender session is connected. Run blender_install_addon once, then open Blender (the "Unify Bridge" add-on connects automatically).';
                 return sessions.map(session => {
                     const queued = [...state.pending.values()].filter(pending => pending.session === session.id && !pending.startedAt).length;
                     const running = session.running ? ` | running ${session.running.op} for ${Math.round((Date.now() - session.running.startedAt) / 1000)}s` : '';
@@ -1010,7 +1010,7 @@ const pack: ToolpackDefinition = {
         },
         {
             name: 'export_animation',
-            description: 'Convert armature animations to a dsh-animation JSON file for roblox_import_animation (Open Cloud needs KeyframeSequences, not FBX). With fbx, the FBX is read by a separate headless Blender (open scene untouched; long runs continue as a blender_job_status job); otherwise the session\'s armature is used. Samples every frame (or every step frames) with constraints applied. Without actions, an FBX exports all takes and a session armature its current action. Output goes next to the FBX or to "exports" next to the .blend.',
+            description: 'Convert armature animations to a unify-animation JSON file for roblox_import_animation (Open Cloud needs KeyframeSequences, not FBX). With fbx, the FBX is read by a separate headless Blender (open scene untouched; long runs continue as a blender_job_status job); otherwise the session\'s armature is used. Samples every frame (or every step frames) with constraints applied. Without actions, an FBX exports all takes and a session armature its current action. Output goes next to the FBX or to "exports" next to the .blend.',
             inputSchema: {
                 type: 'object', additionalProperties: false, properties: {
                     instance: instanceSchema,
@@ -1059,9 +1059,9 @@ const pack: ToolpackDefinition = {
 
                 const params = { armature: optionalString(args, 'armature') ?? null, actions: actions ?? null, frame_start: args.frameStart ?? null, frame_end: args.frameEnd ?? null, step, fps: fps ?? null, out, fbx: fbx ?? null };
                 const report = (output: string): string => {
-                    const line = output.split(/\r?\n/).find(item => item.startsWith('DSH_ANIM_RESULT '));
+                    const line = output.split(/\r?\n/).find(item => item.startsWith('UNIFY_ANIM_RESULT '));
                     if (!line) throw new Error(`Blender did not report a result.\n${output.slice(-2000)}`);
-                    const summary = JSON.parse(line.slice('DSH_ANIM_RESULT '.length)) as { armature: string; bones: number; animations: Array<{ name: string; keys: number; seconds: number; fps: number }> };
+                    const summary = JSON.parse(line.slice('UNIFY_ANIM_RESULT '.length)) as { armature: string; bones: number; animations: Array<{ name: string; keys: number; seconds: number; fps: number }> };
                     return [
                         `Wrote ${out}`,
                         `Armature "${summary.armature}" with ${summary.bones} bones.`,
@@ -1070,14 +1070,14 @@ const pack: ToolpackDefinition = {
                     ].join('\n');
                 };
                 if (session) {
-                    const data = await command(session, 'execute', { code: `${ANIM_SOURCE}\n_dsh_anim_export(**_dsh_json.loads(${JSON.stringify(JSON.stringify(params))}))` }, 55_000);
+                    const data = await command(session, 'execute', { code: `${ANIM_SOURCE}\n_unify_anim_export(**_unify_json.loads(${JSON.stringify(JSON.stringify(params))}))` }, 55_000);
                     if (!isRecord(data)) throw new Error('Blender returned an invalid response.');
                     if (typeof data.error === 'string' && data.error) throw new Error(data.error);
                     return report(typeof data.output === 'string' ? data.output : '');
                 }
                 const explicit = optionalString(args, 'blenderPath');
                 const blender = explicit !== undefined ? blenderExecutable(explicit) : (await blenderCandidates())[0];
-                if (!blender) throw new Error('No Blender executable found. Pass blenderPath or set DSH_BLENDER_PATH.');
+                if (!blender) throw new Error('No Blender executable found. Pass blenderPath or set UNIFY_BLENDER_PATH.');
                 await mkdir(ctx.dataDir, { recursive: true });
                 // Per-call files: parallel exports must not overwrite each other's parameters.
                 const tag = randomBytes(4).toString('hex');
@@ -1088,9 +1088,9 @@ const pack: ToolpackDefinition = {
                 const job = startJob(`Animation export of ${basename(fbx!)}`, async () => {
                     try {
                         const result = await run(blender, ['--background', '--factory-startup', '--python', script, '--', paramsFile], HEADLESS_TIMEOUT_MS);
-                        if (!result.stdout.includes('DSH_ANIM_RESULT ')) {
-                            const failure = result.stdout.split(/\r?\n/).find(line => line.startsWith('DSH_ANIM_ERROR '));
-                            throw new Error(failure ? failure.slice('DSH_ANIM_ERROR '.length) : `Blender (${blender}) did not finish (exit ${result.code}).\n${(result.stderr || result.stdout).slice(-2000)}`);
+                        if (!result.stdout.includes('UNIFY_ANIM_RESULT ')) {
+                            const failure = result.stdout.split(/\r?\n/).find(line => line.startsWith('UNIFY_ANIM_ERROR '));
+                            throw new Error(failure ? failure.slice('UNIFY_ANIM_ERROR '.length) : `Blender (${blender}) did not finish (exit ${result.code}).\n${(result.stderr || result.stdout).slice(-2000)}`);
                         }
                         return report(result.stdout);
                     } finally {
@@ -1125,7 +1125,7 @@ const pack: ToolpackDefinition = {
         },
         {
             name: 'install_addon',
-            description: 'Install (or update) the DSH Bridge add-on into Blender\'s user add-ons folder and enable it, using a headless Blender run. Finds Blender automatically (Program Files, Steam libraries, DSH_BLENDER_PATH), preferring the version of a connected session, unless blenderPath is given. Open Blender windows need a restart afterwards.',
+            description: 'Install (or update) the Unify Bridge add-on into Blender\'s user add-ons folder and enable it, using a headless Blender run. Finds Blender automatically (Program Files, Steam libraries, UNIFY_BLENDER_PATH), preferring the version of a connected session, unless blenderPath is given. Open Blender windows need a restart afterwards.',
             inputSchema: {
                 type: 'object', properties: {
                     blenderPath: { type: 'string', description: 'Path to the Blender executable (blender or blender.exe).' },
@@ -1133,13 +1133,13 @@ const pack: ToolpackDefinition = {
                 },
             },
             async run(args, ctx) {
-                const addonFile = join(ctx.dataDir, 'dsh_bridge.py');
+                const addonFile = join(ctx.dataDir, 'unify_bridge.py');
                 await mkdir(ctx.dataDir, { recursive: true });
                 await writeFile(addonFile, ADDON_SOURCE, 'utf8');
                 const explicit = optionalString(args, 'blenderPath');
                 let candidates = explicit !== undefined ? [blenderExecutable(explicit)] : await blenderCandidates();
-                const manual = `Manual install: Blender > Edit > Preferences > Add-ons > dropdown (top right) > Install from Disk..., choose ${addonFile}, then enable "DSH Bridge".`;
-                if (!candidates.length) return `Saved the add-on to ${addonFile}, but no Blender executable was found. Pass blenderPath or set DSH_BLENDER_PATH.\n${manual}`;
+                const manual = `Manual install: Blender > Edit > Preferences > Add-ons > dropdown (top right) > Install from Disk..., choose ${addonFile}, then enable "Unify Bridge".`;
+                if (!candidates.length) return `Saved the add-on to ${addonFile}, but no Blender executable was found. Pass blenderPath or set UNIFY_BLENDER_PATH.\n${manual}`;
                 if (explicit === undefined) {
                     // Install folders are named by major.minor ("Blender 4.2"); prefer the Blender the user has open.
                     const running = onlineSessions().map(session => /^(\d+\.\d+)/.exec(session.blender)?.[1]).filter((version): version is string => !!version);
@@ -1152,14 +1152,14 @@ const pack: ToolpackDefinition = {
                 const enable = optionalBoolean(args, 'enable') ?? true;
                 const job = startJob(`Add-on install into ${blender}`, async () => {
                     const result = await run(blender, ['--background', '--python', script, '--', addonFile, enable ? '1' : '0'], HEADLESS_TIMEOUT_MS);
-                    const line = result.stdout.split(/\r?\n/).find(item => item.startsWith('DSH_INSTALL_RESULT '));
+                    const line = result.stdout.split(/\r?\n/).find(item => item.startsWith('UNIFY_INSTALL_RESULT '));
                     if (!line) throw new Error(`Blender (${blender}) did not finish the install (exit ${result.code}).\n${(result.stderr || result.stdout).slice(-2000)}\n${manual}`);
-                    const info = JSON.parse(line.slice('DSH_INSTALL_RESULT '.length)) as { blender?: string; path?: string; enabled?: boolean; enableError?: string; error?: string };
+                    const info = JSON.parse(line.slice('UNIFY_INSTALL_RESULT '.length)) as { blender?: string; path?: string; enabled?: boolean; enableError?: string; error?: string };
                     if (info.error) throw new Error(`Install failed in Blender ${info.blender ?? ''}: ${info.error}\n${manual}`);
-                    const lines = [`Installed DSH Bridge add-on v${ADDON_VERSION} for Blender ${info.blender} (${blender}) at ${info.path}.`];
-                    if (enable) lines.push(info.enabled ? 'Enabled and saved in Blender preferences.' : `Could not enable it automatically${info.enableError ? ` (${info.enableError})` : ''}; enable "DSH Bridge" in Preferences > Add-ons.`);
+                    const lines = [`Installed Unify Bridge add-on v${ADDON_VERSION} for Blender ${info.blender} (${blender}) at ${info.path}.`];
+                    if (enable) lines.push(info.enabled ? 'Enabled and saved in Blender preferences.' : `Could not enable it automatically${info.enableError ? ` (${info.enableError})` : ''}; enable "Unify Bridge" in Preferences > Add-ons.`);
                     if (candidates.length > 1) lines.push(`Other Blender installs found (pass blenderPath to install there too): ${candidates.slice(1).join(', ')}`);
-                    if (onlineSessions().length) lines.push('Restart the Blender windows that are open now so they load this version. If one has "Auto-Save Preferences" on, quitting it can overwrite the enabled state; re-enable DSH Bridge there if it does not reconnect.');
+                    if (onlineSessions().length) lines.push('Restart the Blender windows that are open now so they load this version. If one has "Auto-Save Preferences" on, quitting it can overwrite the enabled state; re-enable Unify Bridge there if it does not reconnect.');
                     else lines.push('Open Blender and it will connect automatically (check with blender_instances).');
                     return lines.join('\n');
                 });
@@ -1184,7 +1184,7 @@ source, enable = argv[0], argv[1] == "1"
 result = {"blender": bpy.app.version_string}
 try:
     folder = bpy.utils.user_resource("SCRIPTS", path="addons", create=True)
-    target = os.path.join(folder, "dsh_bridge.py")
+    target = os.path.join(folder, "unify_bridge.py")
     shutil.copyfile(source, target)
     result["path"] = target
     if enable:
@@ -1192,25 +1192,25 @@ try:
         bpy.utils.refresh_script_paths()
         addon_utils.modules(refresh=True)
         errors = []
-        addon_utils.enable("dsh_bridge", default_set=True, persistent=True, handle_error=lambda error: errors.append("%s: %s" % (type(error).__name__, error)))
-        result["enabled"] = "dsh_bridge" in bpy.context.preferences.addons
+        addon_utils.enable("unify_bridge", default_set=True, persistent=True, handle_error=lambda error: errors.append("%s: %s" % (type(error).__name__, error)))
+        result["enabled"] = "unify_bridge" in bpy.context.preferences.addons
         if errors:
             result["enableError"] = errors[0]
         bpy.ops.wm.save_userpref()
 except Exception as error:
     result["error"] = "%s: %s" % (type(error).__name__, error)
-print("DSH_INSTALL_RESULT " + json.dumps(result))
+print("UNIFY_INSTALL_RESULT " + json.dumps(result))
 sys.stdout.flush()
 `;
 
-/** Samples armature actions into dsh-animation JSON. Runs inside a session (via execute) or headless (with ANIM_HEADLESS). */
-const ANIM_SOURCE = String.raw`import json as _dsh_json
-import bpy as _dsh_bpy
-from mathutils import Matrix as _DshMatrix
+/** Samples armature actions into unify-animation JSON. Runs inside a session (via execute) or headless (with ANIM_HEADLESS). */
+const ANIM_SOURCE = String.raw`import json as _unify_json
+import bpy as _unify_bpy
+from mathutils import Matrix as _UnifyMatrix
 
 
-def _dsh_anim_export(armature=None, actions=None, frame_start=None, frame_end=None, step=1, fps=None, out=None, fbx=None):
-    bpy = _dsh_bpy
+def _unify_anim_export(armature=None, actions=None, frame_start=None, frame_end=None, step=1, fps=None, out=None, fbx=None):
+    bpy = _unify_bpy
     scene = bpy.context.scene
     if armature:
         arm = bpy.data.objects.get(armature)
@@ -1240,7 +1240,7 @@ def _dsh_anim_export(armature=None, actions=None, frame_start=None, frame_end=No
         raise ValueError("No animation found on %s. Actions in file: %s" % (arm.name, ", ".join(item.name for item in bpy.data.actions) or "none"))
 
     # Blender is Z-up with +Y mapped to Roblox -Z (the roblox FBX preset's axes): (x, y, z) -> (x, z, -y).
-    to_roblox = _DshMatrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))
+    to_roblox = _UnifyMatrix(((1, 0, 0), (0, 0, 1), (0, -1, 0)))
     world_rot = arm.matrix_world.to_quaternion().to_matrix()
     s = arm.matrix_world.to_scale()
     meters = (abs(s.x) + abs(s.y) + abs(s.z)) / 3.0 * scene.unit_settings.scale_length
@@ -1293,33 +1293,33 @@ def _dsh_anim_export(armature=None, actions=None, frame_start=None, frame_end=No
                 pass
         scene.frame_set(old_frame)
 
-    data = {"format": "dsh-animation", "version": 1, "source": fbx or bpy.data.filepath, "armature": arm.name, "bones": bones, "animations": animations}
+    data = {"format": "unify-animation", "version": 1, "source": fbx or bpy.data.filepath, "armature": arm.name, "bones": bones, "animations": animations}
     with open(out, "w", encoding="utf-8") as handle:
-        _dsh_json.dump(data, handle, separators=(",", ":"))
-    print("DSH_ANIM_RESULT " + _dsh_json.dumps({"armature": arm.name, "bones": len(bones), "animations": summary}))
+        _unify_json.dump(data, handle, separators=(",", ":"))
+    print("UNIFY_ANIM_RESULT " + _unify_json.dumps({"armature": arm.name, "bones": len(bones), "animations": summary}))
 `;
 
 const ANIM_HEADLESS = String.raw`
-import sys as _dsh_sys
+import sys as _unify_sys
 
 try:
-    _params = _dsh_json.load(open(_dsh_sys.argv[_dsh_sys.argv.index("--") + 1], encoding="utf-8"))
-    for _obj in list(_dsh_bpy.data.objects):
-        _dsh_bpy.data.objects.remove(_obj, do_unlink=True)
-    _dsh_bpy.ops.import_scene.fbx(filepath=_params["fbx"], use_anim=True)
-    _dsh_anim_export(**_params)
+    _params = _unify_json.load(open(_unify_sys.argv[_unify_sys.argv.index("--") + 1], encoding="utf-8"))
+    for _obj in list(_unify_bpy.data.objects):
+        _unify_bpy.data.objects.remove(_obj, do_unlink=True)
+    _unify_bpy.ops.import_scene.fbx(filepath=_params["fbx"], use_anim=True)
+    _unify_anim_export(**_params)
 except Exception as _error:
-    print("DSH_ANIM_ERROR %s: %s" % (type(_error).__name__, _error))
-_dsh_sys.stdout.flush()
+    print("UNIFY_ANIM_ERROR %s: %s" % (type(_error).__name__, _error))
+_unify_sys.stdout.flush()
 `;
 
 const ADDON_SOURCE = String.raw`bl_info = {
-    "name": "DSH Bridge",
-    "author": "DSH-IDE",
-    "version": (1, 2, 0),
+    "name": "Unify Bridge",
+    "author": "Unify",
+    "version": (1, 3, 0),
     "blender": (3, 6, 0),
-    "location": "View3D > Sidebar > DSH",
-    "description": "Lets DSH-IDE agents inspect and edit this Blender session",
+    "location": "View3D > Sidebar > Unify",
+    "description": "Lets Unify agents inspect and edit this Blender session",
     "category": "Development",
 }
 
@@ -1347,7 +1347,7 @@ import bpy
 import mathutils
 from mathutils import Matrix, Vector
 
-ADDON_VERSION = 3
+ADDON_VERSION = 4
 DISCOVERY_DIR = os.path.join(os.path.expanduser("~"), ".unify", "blender-bridge")
 SESSION = uuid.uuid4().hex[:8]
 MAX_TEXT = 50000
@@ -1435,7 +1435,7 @@ def _remove_tee():
 def _request(pack, path, body=None, timeout=30.0):
     data = None if body is None else json.dumps(body).encode("utf-8")
     request = urllib.request.Request("http://127.0.0.1:%d%s" % (pack["port"], path), data=data, method="GET" if data is None else "POST")
-    request.add_header("x-dsh-token", pack["token"])
+    request.add_header("x-unify-token", pack["token"])
     if data is not None:
         request.add_header("content-type", "application/json")
     with _opener.open(request, timeout=timeout) as response:
@@ -1496,7 +1496,7 @@ def _discover_loop(stop):
             with _lock:
                 if key in _pollers:
                     continue
-                thread = threading.Thread(target=_poll_loop, args=(key, pack, stop), name="dsh-bridge-poll", daemon=True)
+                thread = threading.Thread(target=_poll_loop, args=(key, pack, stop), name="unify-bridge-poll", daemon=True)
                 _pollers[key] = thread
             thread.start()
         stop.wait(2.0)
@@ -1509,7 +1509,7 @@ def _send_loop(stop):
         except queue.Empty:
             continue
         if pack is None:
-            # File saved or opened: tell every DSH window right away instead of waiting for the next poll.
+            # File saved or opened: tell every Unify window right away instead of waiting for the next poll.
             with _lock:
                 packs = [{"port": key[1], "token": key[2]} for key in _pollers]
             for target in packs:
@@ -1607,7 +1607,7 @@ def _dispatch(pack, command):
         return {"id": command_id, "ok": False, "error": "Unknown op %r; run blender_install_addon and restart Blender." % op}
     deadline = command.get("deadline") or 0
     if deadline and time.time() * 1000.0 > deadline:
-        # DSH already told the agent this command timed out; running it now would surprise everyone.
+        # Unify already told the agent this command timed out; running it now would surprise everyone.
         return {"id": command_id, "ok": False, "expired": True, "error": "Expired before Blender could start it; not run."}
     if pack is not None:
         _outbox.put((pack, {"id": command_id, "started": True}))
@@ -1773,9 +1773,9 @@ def op_execute(args):
     code = args.get("code")
     if not isinstance(code, str) or not code.strip():
         raise ValueError("code must be a non-empty string.")
-    filename = "<dsh>"
+    filename = "<unify>"
     linecache.cache[filename] = (len(code), None, code.splitlines(True), filename)
-    namespace = {"__name__": "__dsh__", "bpy": bpy, "bmesh": bmesh, "mathutils": mathutils, "Vector": Vector, "Matrix": Matrix, "C": bpy.context, "D": bpy.data}
+    namespace = {"__name__": "__unify__", "bpy": bpy, "bmesh": bmesh, "mathutils": mathutils, "Vector": Vector, "Matrix": Matrix, "C": bpy.context, "D": bpy.data}
     try:
         tree = ast.parse(code, filename, "exec")
     except SyntaxError:
@@ -1794,8 +1794,8 @@ def op_execute(args):
         except BaseException:
             kind, exc, tb = sys.exc_info()
             error = "".join(traceback.format_exception(kind, exc, tb.tb_next if tb else None))
-    _undo("DSH: execute")
-    # Keep the total well under DSH's 60,000-character tool output limit so tracebacks survive.
+    _undo("Unify: execute")
+    # Keep the total well under Unify's 60,000-character tool output limit so tracebacks survive.
     return {
         "output": _clip(output.getvalue().rstrip(), 25000),
         "value": None if value is None else _clip(repr(value), 8000),
@@ -1935,7 +1935,7 @@ def op_find(args):
                     continue
             matches.append(obj)
         lines = ["%s [%s] in %s" % (obj.name, obj.type, ", ".join(item.name for item in obj.users_collection) or "-") for obj in matches[:limit]]
-    # data lets a DSH batch chain the names, e.g. "{{1.names}}" as another tool's target.
+    # data lets a Unify batch chain the names, e.g. "{{1.names}}" as another tool's target.
     data = {"names": [item.name for item in matches[:limit]], "total": len(matches)}
     if not lines:
         return {"text": "No matches.", "data": data}
@@ -2020,11 +2020,11 @@ def op_properties(args):
             _assign(target, key, raw)
         except Exception as error:
             if changed:
-                _undo("DSH: set properties")
+                _undo("Unify: set properties")
             raise ValueError("Setting %s failed (%s: %s). Already set: %s" % (key, type(error).__name__, error, ", ".join(changed) or "nothing"))
         changed.append(key)
     if changed:
-        _undo("DSH: set properties")
+        _undo("Unify: set properties")
     rna = target.bl_rna
     lines = ["%s [%s]" % (expression, rna.identifier)]
     if changed:
@@ -2078,7 +2078,7 @@ def op_selection(args):
                 missing.append(active)
             else:
                 view_layer.objects.active = obj
-        _undo("DSH: select")
+        _undo("Unify: select")
         if missing:
             lines.append("Not in the view layer: " + ", ".join(missing))
     selected = [obj.name for obj in view_layer.objects if obj.select_get()]
@@ -2797,7 +2797,7 @@ def op_export(args):
     if warnings:
         out_lines.append("Warnings:")
         out_lines.extend("  - " + warning for warning in dict.fromkeys(warnings))
-    # data lets a DSH batch hand the file on, e.g. "{{1.files[0]}}" as roblox_create's path.
+    # data lets a Unify batch hand the file on, e.g. "{{1.files[0]}}" as roblox_create's path.
     return {"text": "\n".join(out_lines), "data": {"files": written, "objects": names}}
 
 
@@ -2846,7 +2846,7 @@ def op_import(args):
             for owner in list(obj.users_collection):
                 owner.objects.unlink(obj)
             collection.objects.link(obj)
-    _undo("DSH: import")
+    _undo("Unify: import")
     actions = [action.name for action in bpy.data.actions if action not in actions_before]
     lines = ["Imported %s with bpy.ops.%s.%s: %d new object%s%s." % (path, module, name, len(added), "" if len(added) == 1 else "s", (" in collection %r" % collection_name) if collection_name and added else "")]
     lines.extend("  %s [%s]" % (obj.name, obj.type) for obj in added[:100])
@@ -2940,14 +2940,14 @@ def op_render(args):
             center, radius = _bounds(objects)
             direction, up = PRESET_VIEWS[view]
             distance = radius * 4.0
-            camera_data = bpy.data.cameras.new("DSH Render Camera")
+            camera_data = bpy.data.cameras.new("Unify Render Camera")
             camera_data.type = "ORTHO"
             padding = float(args.get("padding") or 1.1)
             # ortho_scale spans the longer image side; scale it so the shorter side still fits the bounds.
             camera_data.ortho_scale = radius * 2.0 * padding * max(width / float(height), height / float(width))
             camera_data.clip_start = max(distance - radius * 2.0, 0.001)
             camera_data.clip_end = distance + radius * 2.0
-            camera_object = bpy.data.objects.new("DSH Render Camera", camera_data)
+            camera_object = bpy.data.objects.new("Unify Render Camera", camera_data)
             scene.collection.objects.link(camera_object)
             camera_object.matrix_world = _look_at(center + Vector(direction).normalized() * distance, center, Vector(up)).inverted()
             scene.camera = camera_object
@@ -3025,17 +3025,45 @@ _OPS = {
 
 # ---------------------------------------------------------------- UI and lifecycle
 
-class DSH_PT_bridge(bpy.types.Panel):
-    bl_label = "DSH Bridge"
+# The Unify logo (media/unify.svg) as a 32px PNG, shown as the panel header icon.
+_LOGO_PNG = "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgEAYAAAAj6qa3AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAAAAAAAAPlDu38AAAAJcEhZcwAAAYAAAAGAAB/kyyIAAAAHdElNRQfqCxgGKh9/mGFKAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDI2LTExLTI0VDAzOjQwOjIxKzAwOjAwJaRIqQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAyNi0xMS0yNFQwMzo0MDoyMSswMDowMFT58BUAAAAodEVYdGRhdGU6dGltZXN0YW1wADIwMjYtMTEtMjRUMDY6NDI6MzErMDA6MDDWnLJ6AAADaElEQVRo3u2ZXUgUURiG3zM7uKsuRUlaEOSFioa5RP5FZnkhBUIRZQYrEpGWG2GQSfRDRCShedON5U9hakJm1E1UFEokuaTkT4WJiVAIkZumq7nr7pwuzlk1bZ113XVEfW+eMzvfnO98786cmTlDME1GY1VVZiZEvmmDu7JzfoAVBEAC1KDwjdOl60tL8cftfj0s0cnvvHDVdcagHh7ewEgbXexXzTBwjtF8W+mCXTWAK2gtY10948Y8Rsks0+8GBhLPeDGfsVLWgJs12TnR5QBNQgepBcgdhNA8AP5QYZQHEfcLzs0tLm5OcdkAsYkXnsqZNcd87QyrfFw9YLhc26yOBPHNIKmWRlCLhg763ADoefQjl4/Y/QvTYR110QC8ZZAuu52S5YvijRa5SO2ZEX/rYVDoUUfWJ0b7rYF63HREBAFwEt08bECmznBGk46xaD8/LG16pJwBC6/PCEEgAA0k2LfUwgQBa7KDJ/+zuajPwFhinuLbK/RMRghK1zu76CH3CnfIdpY38p1FLHIDvK8VA5QegNJaMUDpASitFQOUHoDSWjFA6QEorWVvwAK9C9BK9CMAJmw2JlbrjnfNCBDi3ujbysIgLT0DCDQYV++k20gD3eUTRfwwCj+R5x3/yGld6MK9b4Dj4oqACBh2kBYaT5r27UUe4mAU+9nO8hLGimg8x4GlZQBbeqDwgxVi6FMAVmhDJ/dbYMF4vfmnqj9jsAEoLDAYYmKmH29/4G0DvD0JOl28Iu2kkdy357R/+9TRnbw1FhpIoKda4QsJ9MQXWGCFT9IVAHQ+S2ByUmxBhESQQPRJL1TdKqPwPkUHCwS0XtNNCVHDhhoAZH5rArNLydsgnVJc7/888mbhyhtA/2kPKTWMZf8gJGfABQaxyOOZx2CBRVBhDGOwYlApA2ZOgl0Iw8ST2rCW8d5vxoBIRto5v7TCHiGLpBFqpOQYOUoexj5CMFYvCgP8w0c6/cMdNx7HOvolT+d99vJ0x9V3TwASSDaR3u3J3pnwhNe8kcD5VdYAs12rMtu9P/9K62iQZACbDKsH+RnWl85ou+WZwr/X8v4O8h0VsgbEx+v1ZWXeLh8oLDQYYtocW3f5p7PHAYxUO7/eSQEvfDfjj1/OIpX+MuTLMMQLnrgbVnqo/+mn/IzP/n8B3pbxbFmFm/gAAAAASUVORK5CYII="
+_icons = {"previews": None}
+
+
+def _load_logo():
+    import bpy.utils.previews
+    previews = bpy.utils.previews.new()
+    path = os.path.join(bpy.app.tempdir or os.path.expanduser("~"), "unify_bridge_logo.png")
+    try:
+        with open(path, "wb") as handle:
+            handle.write(base64.b64decode(_LOGO_PNG))
+        previews.load("unify_logo", path, "IMAGE")
+    except OSError:
+        pass
+    _icons["previews"] = previews
+
+
+def _logo_icon():
+    previews = _icons["previews"]
+    if previews is None or "unify_logo" not in previews:
+        return 0
+    return previews["unify_logo"].icon_id
+
+
+class UNIFY_PT_bridge(bpy.types.Panel):
+    bl_label = "Unify Bridge"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "DSH"
+    bl_category = "Unify"
+
+    def draw_header(self, context):
+        self.layout.label(text="", icon_value=_logo_icon())
 
     def draw(self, context):
         column = self.layout.column()
         connected = len(_connected)
         column.label(text="Instance: %s" % SESSION)
-        column.label(text="Connected to %d DSH window%s" % (connected, "" if connected == 1 else "s"), icon="LINKED" if connected else "UNLINKED")
+        column.label(text="Connected to %d Unify window%s" % (connected, "" if connected == 1 else "s"), icon="LINKED" if connected else "UNLINKED")
         if _status["busy"]:
             column.label(text="Agent running: %s" % _status["busy"], icon="TIME")
         elif _status["last"]:
@@ -3048,8 +3076,8 @@ def _start():
     stop = threading.Event()
     _run["stop"] = stop
     _install_tee()
-    threading.Thread(target=_discover_loop, args=(stop,), name="dsh-bridge-discover", daemon=True).start()
-    threading.Thread(target=_send_loop, args=(stop,), name="dsh-bridge-send", daemon=True).start()
+    threading.Thread(target=_discover_loop, args=(stop,), name="unify-bridge-discover", daemon=True).start()
+    threading.Thread(target=_send_loop, args=(stop,), name="unify-bridge-send", daemon=True).start()
     for handlers in (bpy.app.handlers.save_post, bpy.app.handlers.load_post):
         if _file_changed not in handlers:
             handlers.append(_file_changed)
@@ -3084,15 +3112,21 @@ def serve_blocking(seconds=None):
 
 
 def register():
-    bpy.utils.register_class(DSH_PT_bridge)
-    if bpy.app.background and not os.environ.get("DSH_BLENDER_BRIDGE_BACKGROUND"):
+    if not bpy.app.background:
+        _load_logo()
+    bpy.utils.register_class(UNIFY_PT_bridge)
+    if bpy.app.background and not os.environ.get("UNIFY_BLENDER_BRIDGE_BACKGROUND"):
         return
     _start()
 
 
 def unregister():
     _stop()
-    bpy.utils.unregister_class(DSH_PT_bridge)
+    bpy.utils.unregister_class(UNIFY_PT_bridge)
+    if _icons["previews"] is not None:
+        import bpy.utils.previews
+        bpy.utils.previews.remove(_icons["previews"])
+        _icons["previews"] = None
 
 
 if __name__ == "__main__":

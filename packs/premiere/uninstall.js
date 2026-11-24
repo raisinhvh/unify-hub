@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Unify runs this when the Premiere pack is removed, before it deletes the pack folder. It removes the DSH Bridge
+ * Unify runs this when the Premiere pack is removed, before it deletes the pack folder. It removes the Unify Bridge
  * CEP panel from the user's Adobe extensions folder and puts PlayerDebugMode back to what it was before the pack
  * was installed (install.js saved it in data/debug-mode-before.json). Without that record (packs installed before
  * it existed) PlayerDebugMode is left as it is, since other unsigned panels may need it.
@@ -11,7 +11,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const packDir = process.env.UNIFY_PACK_DIR || __dirname;
-const EXTENSION_ID = 'com.dsh.premiere.bridge';
+const EXTENSION_ID = 'com.unify.premiere.bridge';
 
 function extensionFolder() {
 	if (process.platform === 'win32') return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Adobe', 'CEP', 'extensions', EXTENSION_ID);
@@ -26,9 +26,9 @@ function removePanel() {
 	const manifest = path.join(folder, 'CSXS', 'manifest.xml');
 	let text = '';
 	try { text = fs.readFileSync(manifest, 'utf8'); } catch { /* checked below */ }
-	if (!text.includes(`ExtensionBundleId="${EXTENSION_ID}"`)) return `Left ${folder} in place: it is not the DSH Bridge panel.`;
+	if (!text.includes(`ExtensionBundleId="${EXTENSION_ID}"`)) return `Left ${folder} in place: it is not the Unify Bridge panel.`;
 	fs.rmSync(folder, { recursive: true, force: true });
-	return `Removed the DSH Bridge panel from ${folder}.`;
+	return `Removed the Unify Bridge panel from ${folder}.`;
 }
 
 function run(file, args) {

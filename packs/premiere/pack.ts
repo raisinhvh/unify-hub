@@ -30,9 +30,9 @@ interface Pending {
     timer: ReturnType<typeof setTimeout>;
 }
 const BRIDGE_VERSION = 2;
-/** Stay well under DSH's 60,000-character tool output cap so JSON is never cut mid-value. */
+/** Stay well under Unify's 60,000-character tool output cap so JSON is never cut mid-value. */
 const MAX_RESULT_CHARS = 50_000;
-const EXTENSION_ID = 'com.dsh.premiere.bridge';
+const EXTENSION_ID = 'com.unify.premiere.bridge';
 const ONLINE_MS = 10_000;
 const state = {
     server: undefined as Server | undefined, ctx: undefined as ToolpackContext | undefined,
@@ -68,7 +68,7 @@ function prune(): void {
 function updateStatus(): void {
     prune();
     const sessions = [...state.sessions.values()].filter(online);
-    const text = sessions.length ? `Connected: ${sessions.map(label).join(', ')}` : 'Waiting for Premiere. Run premiere_install_panel, then open Window > Extensions > DSH Bridge.';
+    const text = sessions.length ? `Connected: ${sessions.map(label).join(', ')}` : 'Waiting for Premiere. Run premiere_install_panel, then open Window > Extensions > Unify Bridge.';
     if (text !== state.lastStatus) { state.lastStatus = text; state.ctx?.status(text); }
 }
 function touch(url: URL): Session {
@@ -86,7 +86,7 @@ function touch(url: URL): Session {
     return session;
 }
 function dispatch(session: Session): void {
-    // One outstanding command per instance. The panel also serializes evalScript across DSH windows.
+    // One outstanding command per instance. The panel also serializes evalScript across Unify windows.
     if (session.inflight.size) return;
     while (session.queue.length && session.waiters.length) {
         const waiter = session.waiters.shift()!;
@@ -109,7 +109,7 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (req.headers['x-dsh-token'] !== state.token) { json(res, 401, { error: 'Invalid bridge token.' }); return; }
+    if (req.headers['x-unify-token'] !== state.token) { json(res, 401, { error: 'Invalid bridge token.' }); return; }
     const url = new URL(req.url || '/', 'http://127.0.0.1');
     if (req.method === 'GET' && (url.pathname === '/ping' || url.pathname === '/poll')) {
         let session: Session;
@@ -147,7 +147,7 @@ function resolveSession(args: Args): Session {
     prune();
     let sessions = [...state.sessions.values()].filter(online);
     if (args.instance) sessions = sessions.filter(session => session.id === args.instance || session.file === args.instance || session.project === args.instance || basename(session.file.replace(/\\/g, '/')) === args.instance);
-    if (!sessions.length) throw new Error('No matching Premiere instance connected. Run premiere_install_panel, restart Premiere, and open Window > Extensions > DSH Bridge.');
+    if (!sessions.length) throw new Error('No matching Premiere instance connected. Run premiere_install_panel, restart Premiere, and open Window > Extensions > Unify Bridge.');
     if (sessions.length > 1) throw new Error(`Several Premiere instances match; pass an instance id from premiere_instances: ${sessions.map(label).join('; ')}`);
     if (sessions[0].bridge !== BRIDGE_VERSION) throw new Error('Premiere panel protocol differs. Run premiere_install_panel and restart Premiere.');
     return sessions[0];
@@ -334,7 +334,7 @@ async function findPresets(args: Args): Promise<unknown> {
 }
 const pack: ToolpackDefinition = {
     name: 'premiere',
-    description: 'Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open DSH Bridge panel.',
+    description: 'Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open Unify Bridge panel.',
     async setup(ctx) {
         if (state.server) throw new Error('Premiere bridge is already running.');
         state.ctx = ctx; state.token = randomBytes(32).toString('hex'); state.lastStatus = '';
@@ -343,9 +343,9 @@ const pack: ToolpackDefinition = {
             await writePanel(join(ctx.dataDir, 'extension'));
             const server = createServer((req, res) => { void handle(req, res).catch(error => { ctx.log(`Premiere bridge: ${String(error)}`); json(res, 500, { error: 'Bridge request failed.' }); }); });
             state.server = server;
-            await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(Number(process.env.DSH_PREMIERE_PORT || 0), '127.0.0.1', resolve); }); // 0: any free port; the panel finds it through the discovery file.
+            await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(Number(process.env.UNIFY_PREMIERE_PORT || 0), '127.0.0.1', resolve); }); // 0: any free port; the panel finds it through the discovery file.
             const address = server.address(); state.port = typeof address === 'object' && address ? address.port : 0;
-            const discoveryDir = process.env.DSH_PREMIERE_DISCOVERY_DIR || join(homedir(), '.unify', 'premiere-bridge');
+            const discoveryDir = process.env.UNIFY_PREMIERE_DISCOVERY_DIR || join(homedir(), '.unify', 'premiere-bridge');
             await mkdir(discoveryDir, { recursive: true });
             state.discoveryFile = join(discoveryDir, `${process.pid}-${randomBytes(4).toString('hex')}.json`);
             await writeFile(state.discoveryFile, JSON.stringify({ port: state.port, token: state.token, pid: process.pid, bridge: BRIDGE_VERSION }), { encoding: 'utf8', mode: 0o600 });
@@ -365,7 +365,7 @@ const pack: ToolpackDefinition = {
     },
     tools: [
         { name: 'instances', description: 'List connected Premiere instances, project files, active sequences and version. Choose an id when several are connected.', inputSchema: { type: 'object', additionalProperties: false, properties: {} }, run() { prune(); return [...state.sessions.values()].filter(online).map(session => ({ instance: session.id, version: session.version, project: session.project, path: session.file, sequence: session.sequence, bridgeVersion: session.bridge, busy: session.running ? `${session.running.op} for ${Math.round((Date.now() - session.running.since) / 1000)}s` : false, queued: session.queue.length })); } },
-        { name: 'install_panel', description: 'Install/update the bundled DSH Bridge CEP panel into the current user Adobe extensions folder. By default enables unsigned CEP panels (PlayerDebugMode) for CSXS 11, used by Premiere 2023. Restart Premiere, then open Window > Extensions > DSH Bridge.',
+        { name: 'install_panel', description: 'Install/update the bundled Unify Bridge CEP panel into the current user Adobe extensions folder. By default enables unsigned CEP panels (PlayerDebugMode) for CSXS 11, used by Premiere 2023. Restart Premiere, then open Window > Extensions > Unify Bridge.',
             inputSchema: { type: 'object', additionalProperties: false, properties: { enableDebugMode: bool('Enable loading unsigned CEP extensions; default true.'), csxsVersion: int('CEP runtime version for PlayerDebugMode; Premiere 2023 uses 11.', 9, 15) } },
             async run(args) {
                 validate(args, this.inputSchema);
@@ -378,7 +378,7 @@ const pack: ToolpackDefinition = {
                     if (process.platform === 'win32') await runFile('reg.exe', ['add', `HKCU\\Software\\Adobe\\CSXS.${version}`, '/v', 'PlayerDebugMode', '/t', 'REG_SZ', '/d', '1', '/f']);
                     else await runFile('/usr/bin/defaults', ['write', `com.adobe.CSXS.${version}`, 'PlayerDebugMode', '-string', '1']);
                 }
-                return `Installed DSH Bridge to ${folder}. Restart Premiere and open Window > Extensions > DSH Bridge. Keep the panel open. ${args.enableDebugMode === false ? 'Unsigned panel loading was not enabled; enable PlayerDebugMode or sign the extension before loading.' : 'Unsigned CEP panel loading is enabled for the selected runtime.'}`;
+                return `Installed Unify Bridge to ${folder}. Restart Premiere and open Window > Extensions > Unify Bridge. Keep the panel open. ${args.enableDebugMode === false ? 'Unsigned panel loading was not enabled; enable PlayerDebugMode or sign the extension before loading.' : 'Unsigned CEP panel loading is enabled for the selected runtime.'}`;
             } },
         { ...tool('find_presets', 'Find installed Adobe export (.epr) and sequence (.sqpreset) presets by filename. Searches Documents/Adobe and installed Adobe applications, or an explicit directory. Does not require Premiere to be connected.', { name: str('Filename substring.'), kind: choices(['all', 'export', 'sequence']), directory: str('Absolute directory to search instead of default roots.'), limit: int('Maximum results; default 50.', 1, 500) }),
             run(args) { validate(args, this.inputSchema); if (args.instance) throw new Error('find_presets searches local files and does not accept an instance.'); return findPresets(args); } },
@@ -406,7 +406,7 @@ const pack: ToolpackDefinition = {
                 const path = join(folder, `${Date.now()}-${randomBytes(4).toString('hex')}.png`);
                 const { maxSize, keep, ...rest } = args;
                 try {
-                    const data = await command({ ...rest, path }, 'capture_frame', 45_000); // Leaves time to wait for the PNG within DSH's 60s cap.
+                    const data = await command({ ...rest, path }, 'capture_frame', 45_000); // Leaves time to wait for the PNG within Unify's 60s cap.
                     const bytes = await waitForFile(path, 10_000);
                     if (bytes.length > 64 * 1024 * 1024 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) throw new Error(args.presetPath ? 'The preset did not produce a PNG image. Select a PNG .epr preset.' : 'Premiere did not produce a PNG image.');
                     const image = downscalePng(bytes, Number(maxSize || 1568));
@@ -424,21 +424,21 @@ const pack: ToolpackDefinition = {
 };
 export default pack;
 
-// Embedded assets make this a single-file DSH upload; no adjacent files or npm packages are needed.
+// Embedded assets make this a single-file Unify upload; no adjacent files or npm packages are needed.
 const PANEL_FILES: Record<string, string> = {
     'CSXS/manifest.xml': String.raw`<?xml version="1.0" encoding="UTF-8"?>
-<ExtensionManifest Version="7.0" ExtensionBundleId="com.dsh.premiere.bridge" ExtensionBundleVersion="1.1.0" ExtensionBundleName="DSH Bridge">
-  <ExtensionList><Extension Id="com.dsh.premiere.bridge.panel" Version="1.1.0" /></ExtensionList>
+<ExtensionManifest Version="7.0" ExtensionBundleId="com.unify.premiere.bridge" ExtensionBundleVersion="1.1.0" ExtensionBundleName="Unify Bridge">
+  <ExtensionList><Extension Id="com.unify.premiere.bridge.panel" Version="1.1.0" /></ExtensionList>
   <ExecutionEnvironment><HostList><Host Name="PPRO" Version="[23.0,25.9]" /></HostList><LocaleList><Locale Code="All" /></LocaleList><RequiredRuntimeList><RequiredRuntime Name="CSXS" Version="11.0" /></RequiredRuntimeList></ExecutionEnvironment>
-  <DispatchInfoList><Extension Id="com.dsh.premiere.bridge.panel"><DispatchInfo>
+  <DispatchInfoList><Extension Id="com.unify.premiere.bridge.panel"><DispatchInfo>
     <Resources><MainPath>./index.html</MainPath><ScriptPath>./host.jsx</ScriptPath><CEFCommandLine><Parameter>--enable-nodejs</Parameter><Parameter>--mixed-context</Parameter></CEFCommandLine></Resources>
     <Lifecycle><AutoVisible>true</AutoVisible></Lifecycle>
-    <UI><Type>Panel</Type><Menu>DSH Bridge</Menu><Geometry><Size><Width>340</Width><Height>230</Height></Size><MinSize><Width>260</Width><Height>160</Height></MinSize></Geometry></UI>
+    <UI><Type>Panel</Type><Menu>Unify Bridge</Menu><Geometry><Size><Width>340</Width><Height>230</Height></Size><MinSize><Width>260</Width><Height>160</Height></MinSize></Geometry></UI>
   </DispatchInfo></Extension></DispatchInfoList>
 </ExtensionManifest>`,
-    'index.html': String.raw`<!doctype html><html><head><meta charset="utf-8"><title>DSH Bridge</title>
-<style>body{background:#232323;color:#eee;font:13px Arial,sans-serif;margin:18px}h1{font-size:18px}p{line-height:1.5}#status{color:#9fc6ff}#last{color:#bbb;overflow-wrap:break-word}button{background:#454545;color:white;border:1px solid #777;border-radius:3px;padding:7px 12px;cursor:pointer}</style></head>
-<body><h1>DSH Premiere Bridge</h1><p id="status">Starting...</p><p id="last"></p><p>Keep this panel open while editing through DSH.</p><button id="toggle">Disconnect</button><script src="panel.js"></script></body></html>`,
+    'index.html': String.raw`<!doctype html><html><head><meta charset="utf-8"><title>Unify Bridge</title>
+<style>body{background:#13100E;color:#EFEAE4;font:13px system-ui,'Segoe UI',Arial,sans-serif;margin:18px}h1{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}p{line-height:1.5;color:#A89E94}#status{color:#EFEAE4}#last{color:#6C625A;overflow-wrap:break-word}button{background:#EFE6DA;color:#0D0B09;border:0;border-radius:6px;padding:7px 12px;cursor:pointer}button:hover{background:#FFF7EC}</style></head>
+<body><h1><svg width="20" height="20" viewBox="0 0 32 32" fill="none"><path d="M4 2H12.4V19.2H15.5V27.6H4V2Z" fill="#C9A465"/><path d="M16.5 21.6H19.6V4.4H28V30H16.5V21.6Z" fill="#8B6A35"/></svg><span>Unify Premiere Bridge</span></h1><p id="status">Starting...</p><p id="last"></p><p>Keep this panel open while editing through Unify.</p><button id="toggle">Disconnect</button><script src="panel.js"></script></body></html>`,
     'panel.js': String.raw`(function () {
     'use strict';
     var status = document.getElementById('status'), last = document.getElementById('last');
@@ -450,10 +450,10 @@ const PANEL_FILES: Record<string, string> = {
     var metadata = { version: '', project: '', file: '', sequence: '', bridge: '2' };
     // Keep ScriptPath minimal; load the editing script here so load errors can be caught.
     var hostFile = decodeURI(__adobe_cep__.getSystemPath('extension')).replace(/^file:\/\/(\/(?=[A-Za-z]:))?/, '') + '/commands.jsx';
-    var loader = 'if (typeof $._DSHPremiere === "undefined") { try { $.evalFile(' + JSON.stringify(hostFile) + '); } catch (e) { $._DSHPremiereLoadError = String(e) + (e.line ? " (line " + e.line + ")" : ""); } } ';
+    var loader = 'if (typeof $._UnifyPremiere === "undefined") { try { $.evalFile(' + JSON.stringify(hostFile) + '); } catch (e) { $._UnifyPremiereLoadError = String(e) + (e.line ? " (line " + e.line + ")" : ""); } } ';
     function evalHost(command, done) {
         var encoded = JSON.stringify(JSON.stringify(command)).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-        __adobe_cep__.evalScript(loader + 'typeof $._DSHPremiere === "undefined" ? "commands.jsx did not load: " + $._DSHPremiereLoadError : $._DSHPremiere.dispatch(' + encoded + ')', function (raw) {
+        __adobe_cep__.evalScript(loader + 'typeof $._UnifyPremiere === "undefined" ? "commands.jsx did not load: " + $._UnifyPremiereLoadError : $._UnifyPremiere.dispatch(' + encoded + ')', function (raw) {
             var result;
             try { result = JSON.parse(raw); if (typeof result.ok !== 'boolean') throw new Error('Missing result status'); }
             catch (error) { result = { ok: false, error: 'Host script failed: ' + String(raw).slice(0, 2000) }; }
@@ -469,7 +469,7 @@ const PANEL_FILES: Record<string, string> = {
         var finished = false, bytes = body ? JSON.stringify(body) : '';
         function finish(error, code, data) { if (finished) return; finished = true; done(error, code, data); }
         var req = http.request({ hostname: '127.0.0.1', port: connection.port, path: route, method: method,
-            headers: { 'x-dsh-token': connection.token, 'content-type': 'application/json', 'content-length': Buffer.byteLength(bytes) } }, function (res) {
+            headers: { 'x-unify-token': connection.token, 'content-type': 'application/json', 'content-length': Buffer.byteLength(bytes) } }, function (res) {
             var chunks = [], size = 0;
             res.on('data', function (chunk) { size += chunk.length; if (size > 8 * 1024 * 1024) { req.destroy(); finish(new Error('Bridge response too large')); } else chunks.push(chunk); });
             res.on('error', finish);
@@ -480,7 +480,7 @@ const PANEL_FILES: Record<string, string> = {
     }
     function ui() {
         var count = Object.keys(connections).filter(function (key) { return connections[key].online; }).length;
-        status.textContent = enabled ? (count ? 'Connected to ' + count + ' DSH window(s). Instance: ' + session : 'Waiting for DSH. Enable the premiere toolpack.') : 'Disconnected.';
+        status.textContent = enabled ? (count ? 'Connected to ' + count + ' Unify window(s). Instance: ' + session : 'Waiting for Unify. Enable the premiere toolpack.') : 'Disconnected.';
     }
     function poll(connection) {
         if (closed || !enabled || connection.polling || connection.removed) return;
@@ -556,11 +556,11 @@ const PANEL_FILES: Record<string, string> = {
     window.addEventListener('beforeunload', function () { closed = true; clearInterval(timer); disconnect(); });
     var timer = setInterval(scan, 2000); scan();
 }());`,
-    'host.jsx': String.raw`$._DSHPremiereBootstrap = true;
+    'host.jsx': String.raw`$._UnifyPremiereBootstrap = true;
 `,
     'commands.jsx': String.raw`// ExtendScript: keep this file compatible with ES3 (no const, let, promises, arrow functions, functions declared inside blocks).
 // Runs agent code outside the bridge closure so scripts cannot reach the bridge's private state.
-$._DSHPremiereRun = function (code, print) { return eval(code); };
+$._UnifyPremiereRun = function (code, print) { return eval(code); };
 (function () {
     var TICKS = 254016000000, logs = [], nextSeq = 1, encoderBound = false, encoderLaunched = false, jobs = {}, jobOrder = [];
     var MARKER_COLORS = ['green', 'red', 'purple', 'orange', 'yellow', 'white', 'blue', 'cyan'];
@@ -1023,11 +1023,11 @@ $._DSHPremiereRun = function (code, print) { return eval(code); };
         execute: function (a) {
             var printed = [], size = 0;
             function print(value) { var text = typeof value === 'string' ? value : stringify(value); size += text.length; if (size <= 40000) printed.push(text); }
-            var result = $._DSHPremiereRun(a.code, print);
+            var result = $._UnifyPremiereRun(a.code, print);
             return { output: printed.join('\n') + (size > 40000 ? '\n...[print output truncated at 40000 characters]' : ''), result: result === undefined ? null : result };
         }
     };
-    $._DSHPremiere = {
+    $._UnifyPremiere = {
         dispatch: function (raw) {
             var command, result;
             try { command = parse(raw); if (!own(ops, command.op)) fail('Unknown operation: ' + command.op + '. Reinstall the panel with premiere_install_panel.'); result = ops[command.op](command.args || {}); if (command.op !== 'info' && command.op !== 'output_log' && command.op !== 'export_status') log('command', command.op + ' completed'); return stringify({ ok: true, data: result }); }

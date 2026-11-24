@@ -37,7 +37,7 @@
       "name": "Figma",
       "author": "raisinhvh",
       "category": "design",
-      "description": "Inspect and edit open Figma design files through the DSH Bridge development plugin: list pages, browse the layer tree, find nodes, read/set selection and node properties, capture node images, export PNG/JPG/SVG/PDF files to disk (one node or batches at several scales), and run Figma Plugin API JavaScript. Requires the Figma desktop app with the DSH Bridge plugin running (figma_install_plugin) and the pairing code entered.",
+      "description": "Inspect and edit open Figma design files through the Unify Bridge development plugin: list pages, browse the layer tree, find nodes, read/set selection and node properties, capture node images, export PNG/JPG/SVG/PDF files to disk (one node or batches at several scales), and run Figma Plugin API JavaScript. Requires the Figma desktop app with the Unify Bridge plugin running (figma_install_plugin) and the pairing code entered.",
       "icon": "figma",
       "installs": 0,
       "tools": [
@@ -98,7 +98,7 @@
       "name": "Premiere",
       "author": "raisinhvh",
       "category": "media",
-      "description": "Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open DSH Bridge panel.",
+      "description": "Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open Unify Bridge panel.",
       "icon": "recorder",
       "installs": 0,
       "tools": [
@@ -139,7 +139,7 @@
       "name": "Roblox",
       "author": "raisinhvh",
       "category": "studio",
-      "description": "Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).",
+      "description": "Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired Unify Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).",
       "icon": "roblox",
       "installs": 0,
       "tools": [

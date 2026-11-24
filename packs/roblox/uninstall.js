@@ -1,13 +1,13 @@
 'use strict';
 /**
  * Unify runs this when the Roblox pack is removed, before it deletes the pack folder (data/opencloud.json goes
- * with it). It removes the DSH Bridge plugin that install.js copied into Roblox Studio's Plugins folder.
+ * with it). It removes the Unify Bridge plugin that install.js copied into Roblox Studio's Plugins folder.
  */
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const PLUGIN_FILE = 'DSHBridge.server.lua';
+const PLUGIN_FILE = 'UnifyBridge.server.lua';
 
 function pluginsFolder() {
 	if (process.platform === 'win32') {

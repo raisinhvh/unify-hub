@@ -1,6 +1,6 @@
 # Figma
 
-Inspect and edit open Figma design files through the DSH Bridge development plugin: list pages, browse the layer tree, find nodes, read/set selection and node properties, capture node images, export PNG/JPG/SVG/PDF files to disk (one node or batches at several scales), and run Figma Plugin API JavaScript. Requires the Figma desktop app with the DSH Bridge plugin running (figma_install_plugin) and the pairing code entered.
+Inspect and edit open Figma design files through the Unify Bridge development plugin: list pages, browse the layer tree, find nodes, read/set selection and node properties, capture node images, export PNG/JPG/SVG/PDF files to disk (one node or batches at several scales), and run Figma Plugin API JavaScript. Requires the Figma desktop app with the Unify Bridge plugin running (figma_install_plugin) and the pairing code entered.
 
 - Author: raisinhvh
 - Version: 1.0.0
@@ -10,7 +10,7 @@ Inspect and edit open Figma design files through the DSH Bridge development plug
 ## Tools
 
 - `figma_instances` — List connected Figma files with their current page, editor, user, bridge version and the command each is busy with. Choose an instance id when several files are connected.
-- `figma_install_plugin` — Install/update the bundled DSH Bridge Figma development plugin into the DSH data folder. Import the manifest once in Figma, then run the plugin and enter the pairing code.
+- `figma_install_plugin` — Install/update the bundled Unify Bridge Figma development plugin into the Unify data folder. Import the manifest once in Figma, then run the plugin and enter the pairing code.
 - `figma_pages` — List pages or switch the current page. page accepts a page id or exact name.
 - `figma_tree` — Read the layer tree with node ids, types, names, positions and sizes (x/y relative to the parent). root (a node) or page sets where to start; default is the current page. depth defaults to 3 and maxItems to 200. includeStyle adds fill/stroke hex, opacity, corner radius, auto layout, and text/font/fontSize for text nodes.
 - `figma_find` — Find nodes by case-insensitive name substring and/or node type. scope page (default) searches page (or the current page); document loads and searches every page. Each result includes page and pageId.
@@ -24,4 +24,4 @@ Inspect and edit open Figma design files through the DSH Bridge development plug
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which writes the DSH Bridge development plugin into the pack's data folder. The **Finish setup** checklist (from `setup.json`) shows how to import the plugin in Figma and pair it.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which writes the Unify Bridge development plugin into the pack's data folder. The **Finish setup** checklist (from `setup.json`) shows how to import the plugin in Figma and pair it.

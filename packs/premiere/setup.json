@@ -3,23 +3,23 @@
 		{
 			"id": "install-panel",
 			"title": "Install the Premiere panel",
-			"detail": "Unify copies the DSH Bridge panel into Adobe's extensions folder and allows unsigned panels to load (Adobe's PlayerDebugMode, which applies to every unsigned panel).",
+			"detail": "Unify copies the Unify Bridge panel into Adobe's extensions folder and allows unsigned panels to load (Adobe's PlayerDebugMode, which applies to every unsigned panel).",
 			"kind": "auto",
-			"check": { "exists": "${APPDATA}/Adobe/CEP/extensions/com.dsh.premiere.bridge/CSXS/manifest.xml" },
+			"check": { "exists": "${APPDATA}/Adobe/CEP/extensions/com.unify.premiere.bridge/CSXS/manifest.xml" },
 			"platforms": ["win32"]
 		},
 		{
 			"id": "install-panel-mac",
 			"title": "Install the Premiere panel",
-			"detail": "Unify copies the DSH Bridge panel into Adobe's extensions folder and allows unsigned panels to load (Adobe's PlayerDebugMode, which applies to every unsigned panel).",
+			"detail": "Unify copies the Unify Bridge panel into Adobe's extensions folder and allows unsigned panels to load (Adobe's PlayerDebugMode, which applies to every unsigned panel).",
 			"kind": "auto",
-			"check": { "exists": "${HOME}/Library/Application Support/Adobe/CEP/extensions/com.dsh.premiere.bridge/CSXS/manifest.xml" },
+			"check": { "exists": "${HOME}/Library/Application Support/Adobe/CEP/extensions/com.unify.premiere.bridge/CSXS/manifest.xml" },
 			"platforms": ["darwin"]
 		},
 		{
 			"id": "open-panel",
 			"title": "Open the panel in Premiere",
-			"detail": "Restart Premiere Pro, then open Window > Extensions > DSH Bridge. Keep the panel open while agents work; it connects by itself.",
+			"detail": "Restart Premiere Pro, then open Window > Extensions > Unify Bridge. Keep the panel open while agents work; it connects by itself.",
 			"kind": "manual"
 		}
 	]

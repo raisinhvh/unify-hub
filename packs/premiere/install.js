@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Unify runs this after installing the Premiere pack. It installs the bundled DSH Bridge CEP panel into the
+ * Unify runs this after installing the Premiere pack. It installs the bundled Unify Bridge CEP panel into the
  * user's Adobe extensions folder and turns on PlayerDebugMode so the unsigned panel can load, using the pack's
  * own premiere_install_panel tool.
  *

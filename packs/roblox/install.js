@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Unify runs this after installing the Roblox pack. It copies the DSH Bridge plugin (DSHBridge.server.lua, shipped
+ * Unify runs this after installing the Roblox pack. It copies the Unify Bridge plugin (UnifyBridge.server.lua, shipped
  * next to this script) into Roblox Studio's local Plugins folder, replacing an older copy, and creates
  * <pack>/data/opencloud.json with empty fields so the user knows where an Open Cloud key goes (values kept on rerun).
  */
@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const packDir = process.env.UNIFY_PACK_DIR || __dirname;
-const PLUGIN_FILE = 'DSHBridge.server.lua';
+const PLUGIN_FILE = 'UnifyBridge.server.lua';
 
 function robloxFolder() {
 	if (process.platform === 'win32') {

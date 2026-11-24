@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Unify runs this after installing the Blender pack. It installs and enables the DSH Bridge add-on with a
+ * Unify runs this after installing the Blender pack. It installs and enables the Unify Bridge add-on with a
  * headless Blender run, using the pack's own blender_install_addon tool. That tool runs as a background job, so
  * this script polls blender_job_status until the job finishes.
  *

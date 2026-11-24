@@ -38,7 +38,7 @@ function run(file, args, label) {
 /** Python 3.10 to 3.12; a Python winget just installed is not on PATH yet, so its install folders come first. */
 function findPython() {
 	const candidates = [];
-	if (process.env.DSH_SOUND_PYTHON) candidates.push([process.env.DSH_SOUND_PYTHON]);
+	if (process.env.UNIFY_SOUND_PYTHON) candidates.push([process.env.UNIFY_SOUND_PYTHON]);
 	if (process.platform === 'win32') {
 		for (const version of ['312', '311', '310']) {
 			for (const base of [process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'Python'), process.env.ProgramFiles]) {

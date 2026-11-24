@@ -1,6 +1,6 @@
 # Premiere
 
-Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open DSH Bridge panel.
+Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, import media, organize bins, create sequences, insert/trim/move/remove/razor clips, add tracks and .mogrt titles, set effect parameters and keyframes, mute tracks, add markers, capture frames, export via Media Encoder with job status, and execute ExtendScript. Built for Premiere Pro 2023 (23.x); requires CEP support and an open Unify Bridge panel.
 
 - Author: raisinhvh
 - Version: 1.0.0
@@ -10,7 +10,7 @@ Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, i
 ## Tools
 
 - `premiere_instances` — List connected Premiere instances, project files, active sequences and version. Choose an id when several are connected.
-- `premiere_install_panel` — Install/update the bundled DSH Bridge CEP panel into the current user Adobe extensions folder. By default enables unsigned CEP panels (PlayerDebugMode) for CSXS 11, used by Premiere 2023. Restart Premiere, then open Window > Extensions > DSH Bridge.
+- `premiere_install_panel` — Install/update the bundled Unify Bridge CEP panel into the current user Adobe extensions folder. By default enables unsigned CEP panels (PlayerDebugMode) for CSXS 11, used by Premiere 2023. Restart Premiere, then open Window > Extensions > Unify Bridge.
 - `premiere_find_presets` — Find installed Adobe export (.epr) and sequence (.sqpreset) presets by filename. Searches Documents/Adobe and installed Adobe applications, or an explicit directory. Does not require Premiere to be connected.
 - `premiere_project` — Inspect, open, create, save or save-as a Premiere project. Files require absolute paths. Existing destinations require overwrite:true. Opening/creating may show Premiere dialogs for unsaved work.
 - `premiere_tree` — Read the project bin tree with node ids and media paths. The root defaults to the project root; depth defaults to 4 and maxItems to 300.
@@ -38,4 +38,4 @@ Edit Adobe Premiere Pro through a local CEP panel: inspect projects/timelines, i
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which installs the DSH Bridge CEP panel into Adobe's extensions folder and turns on PlayerDebugMode so the unsigned panel can load (this allows every unsigned CEP panel). The **Finish setup** checklist (from `setup.json`) covers opening the panel.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. Then it runs `install.js`, which installs the Unify Bridge CEP panel into Adobe's extensions folder and turns on PlayerDebugMode so the unsigned panel can load (this allows every unsigned CEP panel). The **Finish setup** checklist (from `setup.json`) covers opening the panel.

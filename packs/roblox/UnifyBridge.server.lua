@@ -8,7 +8,7 @@ local PROTOCOL_VERSION = 3
 local DEFAULT_PORT = 34872
 local PLUGIN_LOADED_AT = os.clock()
 
--- Studio loads plugins again inside every playtest DataModel. The edit copy pairs with DSH and owns the
+-- Studio loads plugins again inside every playtest DataModel. The edit copy pairs with Unify and owns the
 -- widget. A playtest's server copy connects as a "test" session: it runs commands in the live game, ends
 -- the test (StudioTestService:EndTest only works from the test's server) and relays commands to the
 -- client copy, which cannot make HTTP requests.
@@ -16,14 +16,14 @@ local IS_EDIT = RunService:IsEdit()
 local ROLE = if IS_EDIT then "edit" elseif RunService:IsServer() then "server" else "client"
 local StudioTestService = game:GetService("StudioTestService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RELAY_NAME = "DSHBridgeRelay"
+local RELAY_NAME = "UnifyBridgeRelay"
 -- Results travel from the client copy to the server copy in pieces this long.
 local RELAY_CHUNK = 200000
 
 local sessionId = HttpService:GenerateGUID(false)
 local playtestState = nil
 local playtestError = nil
--- Deadline (os.clock) of the command being run; DSH sends how long it will wait for the result.
+-- Deadline (os.clock) of the command being run; Unify sends how long it will wait for the result.
 local commandDeadline = math.huge
 
 -- Plugin chunk environment (Instance, game, print, math, …); not the shared _G table.
@@ -32,29 +32,54 @@ local pluginEnvironment = getfenv()
 -- Only the edit copy has a toolbar and widget; playtest copies read the saved pairing code.
 local toggleButton, statusLabel, pairingBox, widget = nil, nil, nil, nil
 if IS_EDIT then
-	local toolbar = plugin:CreateToolbar("DSH")
-	toggleButton = toolbar:CreateButton("DSHBridge", "Toggle the DSH Bridge", "")
+	local toolbar = plugin:CreateToolbar("Unify")
+	toggleButton = toolbar:CreateButton("UnifyBridge", "Toggle the Unify Bridge", "")
 	toggleButton.ClickableWhenViewportHidden = true
 
 	local widgetInfo = DockWidgetPluginGuiInfo.new(Enum.InitialDockState.Float, true, false, 280, 140, 220, 110)
-	widget = plugin:CreateDockWidgetPluginGuiAsync("DSHBridgeWidget", widgetInfo)
-	widget.Title = "DSH Bridge"
+	widget = plugin:CreateDockWidgetPluginGuiAsync("UnifyBridgeWidget", widgetInfo)
+	widget.Title = "Unify Bridge"
 	widget.Enabled = true
 
 	local background = Instance.new("Frame")
 	background.Name = "Background"
 	background.Size = UDim2.fromScale(1, 1)
-	background.BackgroundColor3 = Color3.fromRGB(35, 35, 38)
+	background.BackgroundColor3 = Color3.fromRGB(19, 16, 14)
 	background.BorderSizePixel = 0
 	background.Parent = widget
 
+	-- The Unify logo (media/unify.svg, a 32x32 viewBox) rebuilt from Frames: two wood-toned L blocks.
+	local logo = Instance.new("Frame")
+	logo.Name = "Logo"
+	logo.Position = UDim2.fromOffset(10, 10)
+	logo.Size = UDim2.fromOffset(20, 20)
+	logo.BackgroundTransparency = 1
+	logo.Parent = background
+
+	local LOGO_LIGHT = Color3.fromRGB(201, 164, 101)
+	local LOGO_DARK = Color3.fromRGB(139, 106, 53)
+	local logoRects = {
+		{ 4, 2, 12.4, 27.6, LOGO_LIGHT },
+		{ 12.4, 19.2, 15.5, 27.6, LOGO_LIGHT },
+		{ 19.6, 4.4, 28, 30, LOGO_DARK },
+		{ 16.5, 21.6, 19.6, 30, LOGO_DARK },
+	}
+	for _, rect in logoRects do
+		local block = Instance.new("Frame")
+		block.Position = UDim2.fromScale(rect[1] / 32, rect[2] / 32)
+		block.Size = UDim2.fromScale((rect[3] - rect[1]) / 32, (rect[4] - rect[2]) / 32)
+		block.BackgroundColor3 = rect[5]
+		block.BorderSizePixel = 0
+		block.Parent = logo
+	end
+
 	statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "Status"
-	statusLabel.Position = UDim2.fromOffset(10, 8)
-	statusLabel.Size = UDim2.new(1, -20, 1, -54)
+	statusLabel.Position = UDim2.fromOffset(38, 10)
+	statusLabel.Size = UDim2.new(1, -48, 1, -56)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Font = Enum.Font.Gotham
-	statusLabel.TextColor3 = Color3.fromRGB(235, 235, 235)
+	statusLabel.TextColor3 = Color3.fromRGB(239, 234, 228)
 	statusLabel.TextSize = 16
 	statusLabel.TextWrapped = true
 	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -65,29 +90,43 @@ if IS_EDIT then
 	pairingBox.Name = "PairingCode"
 	pairingBox.Position = UDim2.new(0, 10, 1, -38)
 	pairingBox.Size = UDim2.new(1, -20, 0, 28)
-	pairingBox.BackgroundColor3 = Color3.fromRGB(52, 52, 56)
+	pairingBox.BackgroundColor3 = Color3.fromRGB(27, 23, 20)
 	pairingBox.BorderSizePixel = 0
 	pairingBox.ClearTextOnFocus = false
 	pairingBox.Font = Enum.Font.GothamMedium
 	pairingBox.PlaceholderText = "Pairing code"
-	pairingBox.PlaceholderColor3 = Color3.fromRGB(160, 160, 165)
-	pairingBox.TextColor3 = Color3.fromRGB(240, 240, 240)
+	pairingBox.PlaceholderColor3 = Color3.fromRGB(108, 98, 90)
+	pairingBox.TextColor3 = Color3.fromRGB(239, 234, 228)
 	pairingBox.TextSize = 14
 	pairingBox.TextXAlignment = Enum.TextXAlignment.Left
 	pairingBox.Parent = background
+
+	local pairingCorner = Instance.new("UICorner")
+	pairingCorner.CornerRadius = UDim.new(0, 6)
+	pairingCorner.Parent = pairingBox
+
+	local pairingStroke = Instance.new("UIStroke")
+	pairingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	pairingStroke.Color = Color3.fromRGB(46, 39, 34)
+	pairingStroke.Parent = pairingBox
+
+	local pairingPadding = Instance.new("UIPadding")
+	pairingPadding.PaddingLeft = UDim.new(0, 8)
+	pairingPadding.PaddingRight = UDim.new(0, 8)
+	pairingPadding.Parent = pairingBox
 end
 
 local function trim(value)
 	return (value:gsub("^%s*(.-)%s*$", "%1"))
 end
 
-local savedCode = plugin:GetSetting("DSHPairingCode")
+local savedCode = plugin:GetSetting("UnifyPairingCode")
 local pairingCode = type(savedCode) == "string" and string.upper(trim(savedCode)) or ""
 if pairingBox then
 	pairingBox.Text = pairingCode
 end
 
--- DSH shows "CODE" on the default port and "CODE:PORT" when DSH_ROBLOX_PORT moves it.
+-- Unify shows "CODE" on the default port and "CODE:PORT" when UNIFY_ROBLOX_PORT moves it.
 local function parsePairing(text)
 	local code, port = string.match(text, "^([^:]*):(%d+)$")
 	if code then
@@ -191,7 +230,7 @@ local function sortedChildren(instance)
 	if instance == workspace then
 		-- The plugin's own capture rig is not part of the place.
 		for index = #children, 1, -1 do
-			if children[index].Name == "DSHBridgeCaptureRig" and not children[index].Archivable then
+			if children[index].Name == "UnifyBridgeCaptureRig" and not children[index].Archivable then
 				table.remove(children, index)
 			end
 		end
@@ -427,7 +466,7 @@ local function sourceOperation(args)
 	if not instance:IsA("LuaSourceContainer") then
 		error("Instance is not a LuaSourceContainer", 0)
 	end
-	-- DSH truncates tool output at 60k characters, so one piece stays well below that.
+	-- Unify truncates tool output at 60k characters, so one piece stays well below that.
 	local maxChars = clampNumber(args.maxChars, 20000, 100, 50000)
 	local ok, source = pcall(function()
 		return instance.Source
@@ -717,7 +756,7 @@ local function playtestOperation(args)
 		if not settled then
 			error("Studio has not returned to edit mode since the last playtest. Wait a few seconds, or press Stop in Studio.", 0)
 		end
-		plugin:SetSetting("DSHPendingTest", { session = sessionId, at = os.time(), mode = mode })
+		plugin:SetSetting("UnifyPendingTest", { session = sessionId, at = os.time(), mode = mode })
 		playtestState = mode
 		playtestError = nil
 		local finished, failure = false, nil
@@ -725,9 +764,9 @@ local function playtestOperation(args)
 			local ok, err = pcall(function()
 				-- Both calls yield until the test ends.
 				if mode == "play" then
-					testService:ExecutePlayModeAsync({ dshSession = sessionId })
+					testService:ExecutePlayModeAsync({ unifySession = sessionId })
 				else
-					testService:ExecuteRunModeAsync({ dshSession = sessionId })
+					testService:ExecuteRunModeAsync({ unifySession = sessionId })
 				end
 			end)
 			if not ok then
@@ -754,12 +793,12 @@ local function playtestOperation(args)
 	if not playtestRunning() then
 		return { running = false, state = "edit", message = "No playtest was running" }
 	end
-	-- DSH normally asks the test's own server session to end it first (args.serverEnded). Otherwise try
+	-- Unify normally asks the test's own server session to end it first (args.serverEnded). Otherwise try
 	-- EndTest from here, which some Studio versions honor, and RunService:Stop for the old in-place Run mode.
 	if not args.serverEnded or not waitFor(function()
 		return not playtestRunning()
 	end, 5) then
-		pcall(testService.EndTest, testService, "dsh")
+		pcall(testService.EndTest, testService, "unify")
 		local legacyOk, legacyRunning = pcall(RunService.IsRunning, RunService)
 		if legacyOk and legacyRunning then
 			pcall(RunService.Stop, RunService)
@@ -881,21 +920,21 @@ end
 
 -- The wrapper sits on the code's first line, so error line numbers match the code. Values cross the
 -- BindableEvent as Instances (shown as paths) or strings, because functions and mixed tables cannot.
-local GAME_EXECUTE_PREFIX = 'local __dshOut = script:WaitForChild("DSHBridgeOut") '
-	.. 'local function __dshText(value) local ok, text = pcall(tostring, value) return if ok then text else "<unstringifiable>" end '
-	.. "local function __dshSend(kind, ...) local count = select(\"#\", ...) local values = {} "
+local GAME_EXECUTE_PREFIX = 'local __unifyOut = script:WaitForChild("UnifyBridgeOut") '
+	.. 'local function __unifyText(value) local ok, text = pcall(tostring, value) return if ok then text else "<unstringifiable>" end '
+	.. "local function __unifySend(kind, ...) local count = select(\"#\", ...) local values = {} "
 	.. "for index = 1, count do local value = select(index, ...) "
-	.. 'values[index] = if typeof(value) == "Instance" then { instance = value } else { text = __dshText(value) } end '
-	.. "__dshOut:Fire(kind, count, values) end "
-	.. 'local function print(...) __dshSend("log", ...) end local function warn(...) __dshSend("log", ...) end '
-	.. '__dshSend("done", pcall(function(...) '
+	.. 'values[index] = if typeof(value) == "Instance" then { instance = value } else { text = __unifyText(value) } end '
+	.. "__unifyOut:Fire(kind, count, values) end "
+	.. 'local function print(...) __unifySend("log", ...) end local function warn(...) __unifySend("log", ...) end '
+	.. '__unifySend("done", pcall(function(...) '
 local GAME_EXECUTE_SUFFIX = "\nend))"
 
 -- In a playtest the code runs as a game Script (server) or client Script, so it shares the game's require
 -- cache and state. Plugin code would get fresh, uninitialized copies of every module.
 local function executeInGame(code)
 	local source = GAME_EXECUTE_PREFIX .. code .. GAME_EXECUTE_SUFFIX
-	local loadstringOk, chunk, compileErr = pcall(loadstring, source, "DSHBridgeExecute")
+	local loadstringOk, chunk, compileErr = pcall(loadstring, source, "UnifyBridgeExecute")
 	if loadstringOk and not chunk then
 		error("Compile error: " .. executeOutputString(compileErr), 0)
 	end
@@ -904,13 +943,13 @@ local function executeInGame(code)
 	local logState = { truncated = false }
 	local finished, succeeded, values = false, false, {}
 	local runner = Instance.new("Script")
-	runner.Name = "DSHBridgeExecute"
+	runner.Name = "UnifyBridgeExecute"
 	runner.Archivable = false
 	if ROLE == "client" then
 		runner.RunContext = Enum.RunContext.Client
 	end
 	local out = Instance.new("BindableEvent")
-	out.Name = "DSHBridgeOut"
+	out.Name = "UnifyBridgeOut"
 	out.Parent = runner
 	out.Event:Connect(function(kind, count, items)
 		local parts = {}
@@ -978,7 +1017,7 @@ local function executeOperation(args)
 		return executeInGame(code)
 	end
 
-	local loadstringOk, chunk, compileErr = pcall(loadstring, code, "DSHBridgeExecute")
+	local loadstringOk, chunk, compileErr = pcall(loadstring, code, "UnifyBridgeExecute")
 	if not loadstringOk then
 		error("loadstring is unavailable in this Studio context: " .. executeOutputString(chunk), 0)
 	end
@@ -988,7 +1027,7 @@ local function executeOperation(args)
 
 	local recording = nil
 	if not RunService:IsRunning() then
-		recording = ChangeHistoryService:TryBeginRecording("DSHBridge.Execute", "DSH Execute")
+		recording = ChangeHistoryService:TryBeginRecording("UnifyBridge.Execute", "Unify Execute")
 		if not recording then
 			error("Cannot execute: Studio is not accepting undo recordings.", 0)
 		end
@@ -1013,7 +1052,7 @@ local function executeOperation(args)
 	local executionSucceeded = false
 	local runtimeError = nil
 	local finished = false
-	-- Leave a second to post the result before DSH stops waiting.
+	-- Leave a second to post the result before Unify stops waiting.
 	local timeoutSeconds = math.max(1, math.min(EXECUTE_TIMEOUT_SECONDS, commandDeadline - os.clock() - 1))
 	local deadline = os.clock() + timeoutSeconds
 	local thread = task.spawn(function()
@@ -1117,7 +1156,7 @@ local function setSourceOperation(args)
 		updated = text
 		return text
 	end
-	local recording = ChangeHistoryService:TryBeginRecording("DSHBridge.SetSource", "DSH Edit Script")
+	local recording = ChangeHistoryService:TryBeginRecording("UnifyBridge.SetSource", "Unify Edit Script")
 	local ok, err = pcall(scriptEditor.UpdateSourceAsync, scriptEditor, instance, transform)
 	if recording then
 		ChangeHistoryService:FinishRecording(
@@ -1139,9 +1178,9 @@ local function setSourceOperation(args)
 	}
 end
 
--- Large values built by execute snippets (shared.__dshBlob[key]) are read back in big pieces.
+-- Large values built by execute snippets (shared.__unifyBlob[key]) are read back in big pieces.
 local function blobOperation(args)
-	local blobs = shared.__dshBlob or {}
+	local blobs = shared.__unifyBlob or {}
 	if type(args.key) ~= "string" then
 		error('blob requires "key"', 0)
 	end
@@ -1158,8 +1197,8 @@ local function blobOperation(args)
 	return { data = string.sub(value, offset, offset + length - 1), total = #value }
 end
 
--- BEGIN DSH CAPTURE VIEW
--- Source of truth: capture-view.lua. Run `node sync-plugin.mjs` to embed it in DSHBridge.server.lua (no runtime require).
+-- BEGIN Unify CAPTURE VIEW
+-- Source of truth: capture-view.lua. Run `node sync-plugin.mjs` to embed it in UnifyBridge.server.lua (no runtime require).
 local captureCache = {}
 local captureOrder = {}
 local CAPTURE_TTL = 300
@@ -1180,12 +1219,12 @@ local function ensureCaptureRig()
 		return
 	end
 	captureRig = Instance.new("Folder")
-	captureRig.Name = "DSHBridgeCaptureRig"
+	captureRig.Name = "UnifyBridgeCaptureRig"
 	captureRig.Archivable = false
 	captureRig.Parent = workspace
 
 	agentCaptureCamera = Instance.new("Camera")
-	agentCaptureCamera.Name = "DSHBridgeCaptureCamera"
+	agentCaptureCamera.Name = "UnifyBridgeCaptureCamera"
 	agentCaptureCamera.CameraType = Enum.CameraType.Scriptable
 	agentCaptureCamera.Parent = captureRig
 end
@@ -1785,7 +1824,7 @@ local function withAgentCamera(work, deadline)
 	end)
 	viewportCaptureActive = false
 	if not restored then
-		warn("DSH Bridge could not restore the editor camera: " .. tostring(restoreError))
+		warn("Unify Bridge could not restore the editor camera: " .. tostring(restoreError))
 	end
 	if not ok then
 		error(tostring(result), 0)
@@ -1931,7 +1970,7 @@ local function captureViewOperation(args)
 		views = output,
 	}
 end
--- END DSH CAPTURE VIEW
+-- END Unify CAPTURE VIEW
 
 -- These act on Studio's editor, so playtest copies refuse them.
 local EDIT_ONLY = { selection = true, playtest = true, set_source = true }
@@ -1974,7 +2013,7 @@ local function postResult(code, body)
 		Url = baseUrl() .. "/result",
 		Method = "POST",
 		Headers = {
-			["x-dsh-token"] = code,
+			["x-unify-token"] = code,
 			["Content-Type"] = "application/json",
 		},
 		Body = HttpService:JSONEncode(body),
@@ -1990,7 +2029,7 @@ end)
 
 -- Runs a command without letting it hold the poll loop past its budget (plus a little grace). One that
 -- overruns is left to finish on its own, since cancelling could leave the editor camera swapped, and
--- DSH (which has already timed out the call) gets an error so later commands keep flowing.
+-- Unify (which has already timed out the call) gets an error so later commands keep flowing.
 local function runCommand(command)
 	local finished, ok, result = false, false, nil
 	task.spawn(function()
@@ -2053,16 +2092,16 @@ if ROLE == "server" then
 	-- unreliable in some Studio versions).
 	local parent = ""
 	local argsOk, testArgs = pcall(StudioTestService.GetTestArgs, StudioTestService)
-	if argsOk and type(testArgs) == "table" and type(testArgs.dshSession) == "string" then
-		parent = testArgs.dshSession
+	if argsOk and type(testArgs) == "table" and type(testArgs.unifySession) == "string" then
+		parent = testArgs.unifySession
 	else
-		local pending = plugin:GetSetting("DSHPendingTest")
+		local pending = plugin:GetSetting("UnifyPendingTest")
 		if type(pending) == "table" and type(pending.session) == "string" and os.time() - (tonumber(pending.at) or 0) < 120 then
 			parent = pending.session
 		end
 	end
 	local base = "http://127.0.0.1:" .. tostring(port)
-	local headers = { ["x-dsh-token"] = code }
+	local headers = { ["x-unify-token"] = code }
 	local Players = game:GetService("Players")
 
 	local relay = Instance.new("RemoteEvent")
@@ -2089,7 +2128,7 @@ if ROLE == "server" then
 			.. "&protocol="
 			.. tostring(PROTOCOL_VERSION)
 	end
-	-- The long poll only reports the client when it starts; a ping tells DSH right away.
+	-- The long poll only reports the client when it starts; a ping tells Unify right away.
 	local function announce()
 		task.spawn(pcall, HttpService.RequestAsync, HttpService, { Url = base .. "/ping?" .. testQuery(), Method = "GET", Headers = headers })
 	end
@@ -2116,10 +2155,10 @@ if ROLE == "server" then
 
 	local function relayToClient(command)
 		if not (relayClient and relayClient.Parent) then
-			return { id = command.id, ok = false, error = "The playtest client has not connected to DSH yet. Retry in a few seconds." }
+			return { id = command.id, ok = false, error = "The playtest client has not connected to Unify yet. Retry in a few seconds." }
 		end
 		local budget = (tonumber(command.budgetMs) or 30000) / 1000
-		-- The client gets a second less, so its own timeout error arrives before DSH stops waiting.
+		-- The client gets a second less, so its own timeout error arrives before Unify stops waiting.
 		command.budgetMs = math.max(1000, (budget - 1) * 1000)
 		local entry = { chunks = {}, received = 0, count = math.huge }
 		relayWaiting[command.id] = entry
@@ -2167,16 +2206,16 @@ if ROLE == "server" then
 					pcall(HttpService.RequestAsync, HttpService, {
 						Url = base .. "/result",
 						Method = "POST",
-						Headers = { ["x-dsh-token"] = code, ["Content-Type"] = "application/json" },
+						Headers = { ["x-unify-token"] = code, ["Content-Type"] = "application/json" },
 						Body = HttpService:JSONEncode(body),
 					})
 					if command.op == "end_test" then
 						-- Answered first: EndTest tears this DataModel down. It rejects nil, so pass a value.
-						local ended, endError = pcall(StudioTestService.EndTest, StudioTestService, "dsh")
+						local ended, endError = pcall(StudioTestService.EndTest, StudioTestService, "unify")
 						if ended then
 							running = false
 						else
-							warn("DSH Bridge could not end the playtest: " .. tostring(endError))
+							warn("Unify Bridge could not end the playtest: " .. tostring(endError))
 						end
 					end
 				end
@@ -2191,7 +2230,7 @@ end
 pairingBox.FocusLost:Connect(function()
 	pairingCode = string.upper(trim(pairingBox.Text))
 	pairingBox.Text = pairingCode
-	plugin:SetSetting("DSHPairingCode", pairingCode)
+	plugin:SetSetting("UnifyPairingCode", pairingCode)
 end)
 
 toggleButton.Click:Connect(function()
@@ -2209,28 +2248,28 @@ local function bridgeQuery()
 		.. tostring(PROTOCOL_VERSION)
 end
 
--- A quick request that confirms DSH and the pairing code before the long poll starts.
+-- A quick request that confirms Unify and the pairing code before the long poll starts.
 local function connect(code)
 	local ok, response = pcall(function()
 		return HttpService:RequestAsync({
 			Url = baseUrl() .. "/ping?" .. bridgeQuery(),
 			Method = "GET",
-			Headers = { ["x-dsh-token"] = code },
+			Headers = { ["x-unify-token"] = code },
 		})
 	end)
 	-- 404: an older toolpack without /ping is still running, but it does answer /poll.
 	if ok and (response.StatusCode == 200 or response.StatusCode == 404) then
-		setStatus("Connected to DSH. Place: " .. game.Name)
+		setStatus("Connected to Unify. Place: " .. game.Name)
 		return true
 	elseif ok and response.StatusCode == 401 then
 		setStatus("Wrong pairing code.")
 	elseif ok then
-		setStatus("DSH answered with HTTP " .. response.StatusCode .. ". Re-upload the Roblox toolpack in DSH.")
+		setStatus("Unify answered with HTTP " .. response.StatusCode .. ". Re-upload the Roblox toolpack in Unify.")
 	else
 		setStatus(
-			"DSH is not reachable ("
+			"Unify is not reachable ("
 				.. tostring(response)
-				.. "). Is the Roblox toolpack enabled in DSH, and are HTTP requests allowed?"
+				.. "). Is the Roblox toolpack enabled in Unify, and are HTTP requests allowed?"
 		)
 	end
 	return false
@@ -2241,10 +2280,10 @@ task.spawn(function()
 	while running do
 		local code = parsePairing(pairingCode)
 		if code == "" then
-			setStatus("Enter the pairing code shown in DSH (Custom Tool Calls tab).")
+			setStatus("Enter the pairing code shown in Unify (Custom Tool Calls tab).")
 			task.wait(0.5)
 		elseif not lastReachable then
-			setStatus("Connecting to DSH...")
+			setStatus("Connecting to Unify...")
 			lastReachable = connect(code)
 			if not running then
 				break
@@ -2257,7 +2296,7 @@ task.spawn(function()
 				return HttpService:RequestAsync({
 					Url = baseUrl() .. "/poll?" .. bridgeQuery(),
 					Method = "GET",
-					Headers = { ["x-dsh-token"] = code },
+					Headers = { ["x-unify-token"] = code },
 				})
 			end)
 			if not running then
@@ -2265,7 +2304,7 @@ task.spawn(function()
 			end
 			if not ok then
 				lastReachable = false
-				setStatus("DSH is not reachable. Open DSH and allow HTTP requests when Studio asks.")
+				setStatus("Unify is not reachable. Open Unify and allow HTTP requests when Studio asks.")
 				task.wait(3)
 			elseif response.StatusCode == 401 then
 				lastReachable = false
@@ -2274,12 +2313,12 @@ task.spawn(function()
 			elseif response.StatusCode == 204 then
 				if not lastReachable then
 					lastReachable = true
-					setStatus("Connected to DSH. Place: " .. game.Name)
+					setStatus("Connected to Unify. Place: " .. game.Name)
 				end
 				task.wait()
 			elseif response.StatusCode == 200 then
 				lastReachable = true
-				setStatus("Connected to DSH. Place: " .. game.Name)
+				setStatus("Connected to Unify. Place: " .. game.Name)
 				local decodeOk, command = pcall(function()
 					return HttpService:JSONDecode(response.Body)
 				end)
@@ -2294,19 +2333,19 @@ task.spawn(function()
 					local postOk = pcall(postResult, code, body)
 					if not postOk then
 						lastReachable = false
-						setStatus("DSH is not reachable. Open DSH and allow HTTP requests when Studio asks.")
+						setStatus("Unify is not reachable. Open Unify and allow HTTP requests when Studio asks.")
 						task.wait(3)
 					else
 						task.wait()
 					end
 				else
 					lastReachable = false
-					setStatus("DSH is not reachable. Open DSH and allow HTTP requests when Studio asks.")
+					setStatus("Unify is not reachable. Open Unify and allow HTTP requests when Studio asks.")
 					task.wait(3)
 				end
 			else
 				lastReachable = false
-				setStatus("DSH is not reachable. Open DSH and allow HTTP requests when Studio asks.")
+				setStatus("Unify is not reachable. Open Unify and allow HTTP requests when Studio asks.")
 				task.wait(3)
 			end
 		end

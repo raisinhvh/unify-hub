@@ -1,7 +1,7 @@
 'use strict';
 /**
- * Unify runs this when the Blender pack is removed, before it deletes the pack folder. It removes the DSH Bridge
- * add-on (dsh_bridge.py and its compiled cache) from every Blender version's user add-ons folder, where
+ * Unify runs this when the Blender pack is removed, before it deletes the pack folder. It removes the Unify Bridge
+ * add-on (unify_bridge.py and its compiled cache) from every Blender version's user add-ons folder, where
  * blender_install_addon put it.
  *
  * Blender's saved preferences may still list the add-on as enabled; Blender skips a missing add-on at startup and
@@ -11,7 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const ADDON = 'dsh_bridge';
+const ADDON = 'unify_bridge';
 
 /** Blender's per-user config root, holding one folder per version ("4.2", "3.6", ...). */
 function configRoot() {
@@ -35,7 +35,7 @@ function addonFolders() {
 	return folders;
 }
 
-/** Deletes dsh_bridge.py and __pycache__/dsh_bridge.*.pyc in one add-ons folder; returns whether the add-on was there. */
+/** Deletes unify_bridge.py and __pycache__/unify_bridge.*.pyc in one add-ons folder; returns whether the add-on was there. */
 function removeFrom(folder) {
 	const file = path.join(folder, `${ADDON}.py`);
 	const found = fs.existsSync(file);
@@ -52,10 +52,10 @@ function removeFrom(folder) {
 function main() {
 	const removed = addonFolders().filter(removeFrom);
 	if (!removed.length) {
-		console.log('The DSH Bridge add-on was not installed in any Blender; nothing to remove.');
+		console.log('The Unify Bridge add-on was not installed in any Blender; nothing to remove.');
 		return;
 	}
-	console.log(`Removed the DSH Bridge add-on from ${removed.join(', ')}. Restart Blender to unload it.`);
+	console.log(`Removed the Unify Bridge add-on from ${removed.join(', ')}. Restart Blender to unload it.`);
 }
 
 try {
