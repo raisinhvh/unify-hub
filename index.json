@@ -28,7 +28,7 @@
         "blender_install_addon"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793769071525,
+      "updatedAt": 1795559189200,
       "publishedAt": 1793769071525,
       "license": "MIT"
     },
@@ -55,7 +55,7 @@
         "figma_execute"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793769078638,
+      "updatedAt": 1795559189200,
       "publishedAt": 1793769078638,
       "license": "MIT"
     },
@@ -89,7 +89,7 @@
         "imaging_pipeline"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793769089451,
+      "updatedAt": 1795559189200,
       "publishedAt": 1793769089451,
       "license": "MIT"
     },

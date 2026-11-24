@@ -1,6 +1,23 @@
 {
 	"steps": [
 		{
+			"id": "figma-desktop",
+			"title": "Install the Figma desktop app (optional)",
+			"detail": "The plugin only runs in the desktop app, not in a browser. Unify offers this only when it can't find the app; tick it when you install the pack and Unify installs it for you.",
+			"kind": "auto",
+			"optional": true,
+			"install": { "winget": "Figma.Figma", "brew": "figma" },
+			"check": {
+				"exists": [
+					"${LOCALAPPDATA}/Figma/Figma.exe",
+					"/Applications/Figma.app",
+					"${HOME}/Applications/Figma.app"
+				]
+			},
+			"open": "https://www.figma.com/downloads/",
+			"platforms": ["win32", "darwin"]
+		},
+		{
 			"id": "write-plugin",
 			"title": "Prepare the Figma plugin",
 			"detail": "Unify writes the Unify Bridge development plugin into the pack folder.",

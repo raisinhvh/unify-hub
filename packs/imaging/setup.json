@@ -56,12 +56,12 @@
 		{
 			"id": "rembg",
 			"title": "Add background removal (optional)",
-			"detail": "Lets agents cut a subject out onto a transparent background. Needs Python 3.10 or newer (get it from python.org and tick \"Add python.exe to PATH\"). Choose Install; the first cut-out also downloads a model of about 170 MB.",
+			"detail": "Lets agents cut a subject out onto a transparent background. Tick it when you install the pack, or choose Install here later; Unify also installs Python 3.12 if this computer has none. The first cut-out downloads a model of about 170 MB.",
 			"kind": "auto",
 			"optional": true,
 			"install": { "pip": "rembg[cli]" },
 			"check": { "command": "rembg" },
-			"open": "https://www.python.org/downloads/"
+			"open": "https://github.com/danielgatis/rembg"
 		}
 	]
 }

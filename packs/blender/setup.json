@@ -1,6 +1,28 @@
 {
 	"steps": [
 		{
+			"id": "blender",
+			"title": "Install Blender (optional)",
+			"detail": "Unify offers this only when it can't find Blender. Tick it when you install the pack and Unify installs the latest Blender before it sets up the add-on. Skip it if you run Blender from somewhere else (a portable copy, for example).",
+			"kind": "auto",
+			"optional": true,
+			"install": { "winget": "BlenderFoundation.Blender", "brew": "blender" },
+			"check": {
+				"exists": [
+					"${ProgramFiles}/Blender Foundation",
+					"${APPDATA}/Blender Foundation/Blender",
+					"C:/Program Files (x86)/Steam/steamapps/common/Blender",
+					"C:/Program Files/Steam/steamapps/common/Blender",
+					"/Applications/Blender.app",
+					"${HOME}/Applications/Blender.app",
+					"${HOME}/Library/Application Support/Blender"
+				],
+				"command": "blender"
+			},
+			"open": "https://www.blender.org/download/",
+			"platforms": ["win32", "darwin"]
+		},
+		{
 			"id": "install-addon",
 			"title": "Install the Blender add-on",
 			"detail": "Unify finds Blender, installs the Unify Bridge add-on and turns it on. If Blender isn't found, install it by hand: Edit > Preferences > Add-ons > the menu at the top right > Install from Disk..., pick the file below, then tick Unify Bridge.",

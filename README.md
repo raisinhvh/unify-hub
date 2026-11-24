@@ -71,9 +71,13 @@ on PATH, the saved Windows PATH, WinGet's Links folder and pip's user Scripts fo
 `check` is done when it passes; without one, it is done when the install script exited with code 0.
 
 `install` names a package Unify installs itself: `winget` on Windows, `brew` on macOS, otherwise `pip`
-(`python -m pip install --user`). Always give a `check` so an existing install is skipped. Required steps are
-installed during the pack install, after the user agreed to the exact commands in the consent dialog;
-`optional` steps are never installed without a click on their **Install** button and are never shown as failed.
+(`python -m pip install --user`). Always give a `check` so an existing install is skipped (only steps whose
+check fails are listed). Every pending package appears in the dependency dialog before the pack installs:
+required steps always install, `optional` steps only when ticked there or later with their **Install** button,
+and are never shown as failed. A `pip` step needs no Python step of its own: when no Python is installed,
+Unify adds Python 3.12 (`unify:python`) ahead of it. List Python yourself only when the install script needs
+a specific Python (Sound builds a venv). Prefer an `install` step over downloading a program in the install
+script; download only what no package manager has (pngquant on Windows, Real-ESRGAN).
 
 ## Publishing
 
