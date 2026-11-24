@@ -1,6 +1,6 @@
 # Roblox
 
-Inspect and run Luau, edit scripts, capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).
+Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).
 
 - Author: raisinhvh
 - Version: 1.0.0
@@ -32,9 +32,12 @@ Inspect and run Luau, edit scripts, capture viewport images (saved as PNG or upl
 - `roblox_archive_asset` — Archive an asset (removes it from the website and stops it loading in experiences) or restore an archived one.
 - `roblox_grant_asset_permission` — Let an experience use group assets it does not own, such as private audio, video, images, or models owned by a different creator than the experience. Needs an API key with the asset-permissions write scope. universeId is the experience (universe) id, not the place id.
 - `roblox_asset_quotas` — Show the API key owner's asset upload quotas (for example audio uploads per month and video uploads per day): usage, capacity, and period. Uses userId, or the userId stored by roblox_cloud_config.
+- `roblox_search_audio` — Search Roblox Creator Store audio (no key or Studio needed). One line per hit with rbxassetid://<id>, which works in Roblox directly (Sound.SoundId) without downloading; to edit one locally use sound_fetch rbx:<id> from the Sound toolpack. Filters are applied client-side across up to 3 pages; pass nextPageToken back as pageToken for more.
 - `roblox_insert_asset` — Insert a Model asset (for example one uploaded by roblox_create) into the paired Studio place with InsertService:LoadAsset. The asset contents are moved under parent and selected.
 - `roblox_import_animation` — Turn a dsh-animation JSON file (from blender_export_animation) into KeyframeSequences in Studio and upload each as a group Animation asset. Runs as a background job; returns the result, or a job id for roblox_job_status if it takes longer than ~40s. Retrying while it runs returns the same job.
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. It also downloads `DSHBridge.server.lua` and runs `install.js`, which copies the plugin into Roblox Studio's Plugins folder. The **Finish setup** checklist (from `setup.json`) covers pairing Studio and the optional Open Cloud key.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. It also downloads `DSHBridge.server.lua` and runs `install.js`, which copies the plugin into Roblox Studio's Plugins folder and creates `<pack>/data/opencloud.json`. The **Finish setup** checklist (from `setup.json`) covers pairing Studio and the optional Open Cloud key.
+
+Open Cloud key (optional, only for uploads, game passes and developer products): create one at <https://create.roblox.com/dashboard/credentials> with the Assets, Game passes and Developer products permissions (Read and Write) and accepted IP `0.0.0.0/0`, then paste it after `"apiKey"` in `<pack>/data/opencloud.json` and put your group's number (from `roblox.com/communities/<number>/...`) after `"groupId"`. `roblox_search_audio` needs no key.

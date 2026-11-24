@@ -687,17 +687,19 @@ function cloudConfigPath(): string {
 async function readCloudConfig(): Promise<CloudConfig> {
     let stored: CloudConfig = {};
     try { stored = JSON.parse(await readFile(cloudConfigPath(), 'utf8')) as CloudConfig; } catch { /* Not configured yet. */ }
+    // The install script leaves empty "" placeholders for the user to fill in; treat those as unset.
+    const value = (env: string | undefined, saved: unknown): string | undefined => env || (typeof saved === 'string' && saved.trim() ? saved.trim() : undefined);
     return {
-        apiKey: process.env.DSH_ROBLOX_API_KEY || stored.apiKey,
-        groupId: process.env.DSH_ROBLOX_GROUP_ID || stored.groupId,
-        userId: process.env.DSH_ROBLOX_USER_ID || stored.userId,
-        universeId: process.env.DSH_ROBLOX_UNIVERSE_ID || stored.universeId,
+        apiKey: value(process.env.DSH_ROBLOX_API_KEY, stored.apiKey),
+        groupId: value(process.env.DSH_ROBLOX_GROUP_ID, stored.groupId),
+        userId: value(process.env.DSH_ROBLOX_USER_ID, stored.userId),
+        universeId: value(process.env.DSH_ROBLOX_UNIVERSE_ID, stored.universeId),
     };
 }
 
 async function requireCloud(): Promise<{ apiKey: string; groupId: string; userId?: string }> {
     const config = await readCloudConfig();
-    if (!config.apiKey || !config.groupId) throw new Error(`Open Cloud is not configured. Ask the user to put {"apiKey": "...", "groupId": "..."} in ${cloudConfigPath()} (or set DSH_ROBLOX_API_KEY and DSH_ROBLOX_GROUP_ID). groupId can also be set with roblox_cloud_config. Use a user-owned key with Assets API read and write; the key's owner needs permission to create assets in the group.`);
+    if (!config.apiKey || !config.groupId) throw new Error(`Open Cloud is not configured. Ask the user to create a key at https://create.roblox.com/dashboard/credentials and paste it, plus their group id (the number in the group's URL), between the quotes of "apiKey" and "groupId" in ${cloudConfigPath()} (or set DSH_ROBLOX_API_KEY and DSH_ROBLOX_GROUP_ID). groupId can also be set with roblox_cloud_config. Use a user-owned key with Assets API read and write; the key's owner needs permission to create assets in the group.`);
     return config as { apiKey: string; groupId: string; userId?: string };
 }
 
@@ -1253,7 +1255,7 @@ const pack: ToolpackDefinition = {
     name: 'roblox',
     // Group, user and experience ids follow the user to other PCs; the API key does not.
     sync: { files: ['opencloud.json'], secrets: ['apiKey'] },
-    description: 'Inspect and run Luau, edit scripts, capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).',
+    description: 'Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).',
     async setup(ctx) {
         state.ctx = ctx;
         const envPort = process.env.DSH_ROBLOX_PORT;
@@ -1905,6 +1907,73 @@ const pack: ToolpackDefinition = {
                 const assetType = stringArg(args, 'assetType');
                 if (assetType) params.set('filter', `assetType == ${assetType}`);
                 return JSON.stringify(await cloudFetch(apiKey, `https://apis.roblox.com/cloud/v2/users/${userId}/asset-quotas?${params.toString()}`), null, 2);
+            },
+        },
+        {
+            name: 'search_audio',
+            description: 'Search Roblox Creator Store audio (no key or Studio needed). One line per hit with rbxassetid://<id>, which works in Roblox directly (Sound.SoundId) without downloading; to edit one locally use sound_fetch rbx:<id> from the Sound toolpack. Filters are applied client-side across up to 3 pages; pass nextPageToken back as pageToken for more.',
+            inputSchema: {
+                type: 'object', additionalProperties: false, required: ['query'], properties: {
+                    query: { type: 'string' },
+                    audioType: { type: 'string', enum: ['SoundEffect', 'Music', 'Any'], description: 'Default SoundEffect.' },
+                    minDuration: { type: 'number', minimum: 0, description: 'Seconds.' },
+                    maxDuration: { type: 'number', minimum: 0, description: 'Seconds.' },
+                    count: { type: 'integer', minimum: 1, maximum: 50, description: 'Default 20.' },
+                    pageToken: { type: 'string' },
+                },
+            },
+            async run(args) {
+                const query = stringArg(args, 'query', true)!.trim();
+                const audioType = stringArg(args, 'audioType') ?? 'SoundEffect';
+                if (!['SoundEffect', 'Music', 'Any'].includes(audioType)) throw new Error('audioType must be SoundEffect, Music or Any.');
+                const seconds = (name: string): number | undefined => {
+                    const value = args[name];
+                    if (value === undefined) return undefined;
+                    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number of seconds.`);
+                    return value;
+                };
+                const minDuration = seconds('minDuration');
+                const maxDuration = seconds('maxDuration');
+                const count = Math.min(50, Math.max(1, numberArg(args, 'count', 20)));
+                const filtered = audioType !== 'Any' || minDuration !== undefined || maxDuration !== undefined;
+                let token = stringArg(args, 'pageToken');
+                const hits: Record<string, unknown>[] = [];
+                let total: unknown;
+                let scanned = 0;
+                for (let page = 0; page < 3 && hits.length < count; page++) {
+                    const params = new URLSearchParams({ searchCategoryType: 'Audio', query, maxPageSize: String(filtered ? Math.min(100, count * 2) : count) });
+                    if (token) params.set('pageToken', token);
+                    let response: Response;
+                    try { response = await fetch(`https://apis.roblox.com/toolbox-service/v2/assets:search?${params}`, { signal: AbortSignal.timeout(20_000) }); }
+                    catch (error) { throw new Error(`Roblox Creator Store search failed: ${error instanceof Error ? error.message : String(error)}`); }
+                    if (!response.ok) throw new Error(`Roblox Creator Store search failed: HTTP ${response.status} ${(await response.text()).slice(0, 200)}`);
+                    const body: unknown = await response.json();
+                    if (!isRecord(body)) throw new Error('Roblox Creator Store returned an unexpected reply.');
+                    total ??= body.totalResults;
+                    const items = Array.isArray(body.creatorStoreAssets) ? body.creatorStoreAssets.filter(isRecord) : [];
+                    scanned += items.length;
+                    for (const item of items) {
+                        const asset = isRecord(item.asset) ? item.asset : {};
+                        const duration = typeof asset.durationSeconds === 'number' ? asset.durationSeconds : undefined;
+                        if (audioType !== 'Any' && asset.audioType !== audioType) continue;
+                        if (minDuration !== undefined && (duration === undefined || duration < minDuration)) continue;
+                        if (maxDuration !== undefined && (duration === undefined || duration > maxDuration)) continue;
+                        if (hits.length < count) hits.push(item);
+                    }
+                    token = typeof body.nextPageToken === 'string' && body.nextPageToken ? body.nextPageToken : undefined;
+                    if (!token || !items.length) break;
+                }
+                const line = (item: Record<string, unknown>): string => {
+                    const asset = isRecord(item.asset) ? item.asset : {};
+                    const creator = isRecord(item.creator) ? item.creator : {};
+                    const voting = isRecord(item.voting) ? item.voting : {};
+                    const title = String(asset.title ?? asset.name ?? '').replace(/\s+/g, ' ').slice(0, 80);
+                    return `rbx:${asset.id}  "${title}"  ${asset.durationSeconds ?? '?'}s  ${asset.audioType ?? '?'}  by ${creator.name ?? '?'}${creator.verified === true ? ' ✓' : ''}  +${voting.upVotes ?? 0}/-${voting.downVotes ?? 0}  rbxassetid://${asset.id}`;
+                };
+                const filters = [audioType, minDuration !== undefined || maxDuration !== undefined ? `${minDuration ?? 0}–${maxDuration ?? '∞'}s` : ''].filter(Boolean).join(', ');
+                const lines = [`Creator Store "${query}" (${filters}): ${hits.length} shown, ${scanned} scanned of ~${total ?? '?'} results.`, ...hits.map(line)];
+                lines.push(token ? `nextPageToken: ${token}` : 'No more pages.');
+                return lines.join('\n');
             },
         },
         {

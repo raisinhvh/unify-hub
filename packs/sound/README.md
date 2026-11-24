@@ -1,6 +1,6 @@
 # Sound
 
-Find, create, shape and export game sound effects. Workflow: find (sound_search_roblox -> use rbxassetid://<id> directly, or sound_fetch; sound_search_freesound (CC0 only) -> sound_fetch) or create (sound_generate = local AI text-to-SFX, sound_synth = code synthesis recipes) -> sound_process / sound_mix -> sound_analyze -> sound_export -> roblox_create to upload. Agents cannot hear: judge sounds with the analyze numbers and the waveform/spectrogram PNG, and use send_media so the user can listen before anything is uploaded. Every written file gets a <file>.sfxinfo provenance sidecar (source, licence, args). Slow work runs as jobs (sound_job). First run sound_status / sound_setup.
+Find, create, shape and export game sound effects. Workflow: find (roblox_search_audio from the Roblox toolpack -> use rbxassetid://<id> directly, or sound_fetch rbx:<id>; sound_search_freesound (CC0 only) -> sound_fetch) or create (sound_generate = local AI text-to-SFX, sound_synth = code synthesis recipes) -> sound_process / sound_mix -> sound_analyze -> sound_export -> roblox_create to upload. Agents cannot hear: judge sounds with the analyze numbers and the waveform/spectrogram PNG, and use send_media so the user can listen before anything is uploaded. Every written file gets a <file>.sfxinfo provenance sidecar (source, licence, args). Slow work runs as jobs (sound_job). Unify builds the core Python environment when the pack installs; sound_status shows what is ready and what is missing.
 
 - Author: raisinhvh
 - Version: 1.0.0
@@ -13,7 +13,6 @@ Find, create, shape and export game sound effects. Workflow: find (sound_search_
 - `sound_config` — Show or set stored settings: freesoundToken (free key from https://freesound.org/apiv2/apply), hfToken (Hugging Face read token for Stable Audio 3), robloxApiKey (needs Asset Delivery read for sound_fetch of rbx: ids; defaults to the roblox toolpack key), outputDir (absolute; default output folder). clear lists keys to remove. Secrets are never shown in full. Env vars DSH_FREESOUND_TOKEN / HF_TOKEN override stored tokens.
 - `sound_setup` — Install the Python environment as a job: tier "core" (venv + numpy, scipy, soundfile, pedalboard, pyloudnorm, matplotlib; needed by synth/process/mix/analyze) or "ai" (torch + Stable Audio 3 + CLAP, ~5 GB; needed by generate and prompt scoring; requires core). Returns a job id when it takes longer than ~40 s.
 - `sound_job` — Without id: list sound jobs. With id: wait (default 40 s, max 45) and return the job's result exactly as the original tool would, or its progress. cancel: true stops it (worker jobs stop the Python worker, failing its other in-flight jobs).
-- `sound_search_roblox` — Search Roblox Creator Store audio (no key needed). One line per hit with rbxassetid://<id>, which can be used in Roblox directly without downloading. Filters are applied client-side across up to 3 pages; pass nextPageToken back as pageToken for more.
 - `sound_search_freesound` — Search Freesound for CC0 (public domain) sounds; needs a free API key (sound_config freesoundToken). One line per hit: fs:<id> ... Download with sound_fetch.
 - `sound_fetch` — Download a found sound to a local file plus a .sfxinfo provenance sidecar (source, author, licence, url), then analyse it. id "fs:<id>" (Freesound CC0 only; HQ OGG preview, ~192 kbps) or "rbx:<id>" (needs a Roblox key with Asset Delivery read; Roblox sounds can also be used directly as rbxassetid://<id>). output: file (extension other than the download's converts via ffmpeg) or folder; default <outputDir>/fetch/.
 - `sound_generate` — AI text-to-SFX with Stable Audio 3 small-sfx (local, ai tier). Writes count variants <output_dir>/<name>_<i>_s<seed>.wav, CLAP-ranked best-first when count > 1, then previews them. Describe the sound concretely (source, material, action, space), e.g. "close pistol gunshot, sharp crack, short indoor reverb tail". Default output_dir <outputDir>/generate/.
@@ -25,4 +24,11 @@ Find, create, shape and export game sound effects. Workflow: find (sound_search_
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script. The **Finish setup** checklist (from `setup.json`) lists Python, ffmpeg and the `sound_setup` steps.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. It installs Python 3.12 and ffmpeg (winget on Windows, Homebrew on macOS), then runs `install.js`, which builds the pack's own Python environment in `<pack>/data/venv` with the core sound libraries. This takes a few minutes the first time. Nothing else is needed for synth, process, mix, analyze and export.
+
+Two extras are optional and listed on the **Finish setup** card:
+
+- **Freesound search**: get a free key at <https://freesound.org/apiv2/apply> (sign in, fill in the form, copy "Client secret/Api key") and paste it after `"freesoundToken"` in `<pack>/data/config.json`. The card has a button that copies that file's full path.
+- **AI generation** (about 5 GB): accept the licence at <https://huggingface.co/stabilityai/stable-audio-3-small-sfx>, create a Read token at <https://huggingface.co/settings/tokens>, paste it after `"hfToken"` in the same file, then ask an agent to run `sound_setup` with tier `ai`.
+
+Searching Roblox's own audio library is `roblox_search_audio` in the Roblox pack.

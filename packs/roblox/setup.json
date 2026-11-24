@@ -20,14 +20,16 @@
 		{
 			"id": "pair",
 			"title": "Connect Studio to Unify",
-			"detail": "Restart Studio and open your place. Open Plugins > DSH > DSHBridge, type the pairing code from the Roblox toolpack card (all of it if it shows CODE:PORT), and allow HTTP requests to 127.0.0.1 when Studio asks. The first playtest asks once more; allow that too.",
+			"detail": "Restart Roblox Studio and open your place. On the Plugins tab, find the DSH section and click DSHBridge, type the pairing code from the Roblox toolpack card (all of it if it shows CODE:PORT), and allow HTTP requests to 127.0.0.1 when Studio asks. The first playtest asks once more; allow that too.",
 			"kind": "manual"
 		},
 		{
 			"id": "open-cloud",
 			"title": "Add an Open Cloud key (optional)",
-			"detail": "Only needed for uploads, game passes and developer products. Create a key under Open Cloud > API Keys with Assets, Game passes and Developer products read/write, then ask an agent to run roblox_cloud_config to see where to save it. Never paste the key into a chat.",
+			"detail": "Only needed for uploading assets, game passes and developer products. 1) Open the Credentials page and choose Create API Key. 2) Add the Assets, Game passes and Developer products permissions with Read and Write, and add 0.0.0.0/0 under Accepted IP addresses. 3) Copy the key and paste it between the quotes after \"apiKey\" in the file below. 4) Put your group's number (from its page address, roblox.com/communities/<number>/...) after \"groupId\". Save the file; no restart needed. Never paste the key into a chat.",
 			"kind": "manual",
+			"optional": true,
+			"copy": "${PACK}/data/opencloud.json",
 			"open": "https://create.roblox.com/dashboard/credentials"
 		}
 	]

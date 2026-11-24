@@ -139,7 +139,7 @@
       "name": "Roblox",
       "author": "raisinhvh",
       "category": "studio",
-      "description": "Inspect and run Luau, edit scripts, capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).",
+      "description": "Inspect and run Luau, edit scripts, search Creator Store audio (roblox_search_audio), capture viewport images (saved as PNG or uploaded as image assets), read output logs and selection, and control playtests across multiple Roblox Studio places through the paired DSH Bridge plugin. Uploads models, images, decals, audio, video, and Blender/FBX animations to the group through Open Cloud, inserts models into Studio, and manages uploaded assets (info, metadata, new model versions, version history, rollback, archive/restore, experience permissions, upload quotas).",
       "icon": "roblox",
       "installs": 0,
       "tools": [
@@ -166,6 +166,7 @@
         "roblox_archive_asset",
         "roblox_grant_asset_permission",
         "roblox_asset_quotas",
+        "roblox_search_audio",
         "roblox_insert_asset",
         "roblox_import_animation"
       ],
@@ -179,7 +180,7 @@
       "name": "Sound",
       "author": "raisinhvh",
       "category": "media",
-      "description": "Find, create, shape and export game sound effects. Workflow: find (sound_search_roblox -> use rbxassetid://<id> directly, or sound_fetch; sound_search_freesound (CC0 only) -> sound_fetch) or create (sound_generate = local AI text-to-SFX, sound_synth = code synthesis recipes) -> sound_process / sound_mix -> sound_analyze -> sound_export -> roblox_create to upload. Agents cannot hear: judge sounds with the analyze numbers and the waveform/spectrogram PNG, and use send_media so the user can listen before anything is uploaded. Every written file gets a <file>.sfxinfo provenance sidecar (source, licence, args). Slow work runs as jobs (sound_job). First run sound_status / sound_setup.",
+      "description": "Find, create, shape and export game sound effects. Workflow: find (roblox_search_audio from the Roblox toolpack -> use rbxassetid://<id> directly, or sound_fetch rbx:<id>; sound_search_freesound (CC0 only) -> sound_fetch) or create (sound_generate = local AI text-to-SFX, sound_synth = code synthesis recipes) -> sound_process / sound_mix -> sound_analyze -> sound_export -> roblox_create to upload. Agents cannot hear: judge sounds with the analyze numbers and the waveform/spectrogram PNG, and use send_media so the user can listen before anything is uploaded. Every written file gets a <file>.sfxinfo provenance sidecar (source, licence, args). Slow work runs as jobs (sound_job). Unify builds the core Python environment when the pack installs; sound_status shows what is ready and what is missing.",
       "icon": "audio",
       "installs": 0,
       "tools": [
@@ -187,7 +188,6 @@
         "sound_config",
         "sound_setup",
         "sound_job",
-        "sound_search_roblox",
         "sound_search_freesound",
         "sound_fetch",
         "sound_generate",

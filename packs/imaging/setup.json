@@ -3,30 +3,65 @@
 		{
 			"id": "imagemagick",
 			"title": "Install ImageMagick 7",
-			"detail": "Required. Run the Windows x64 installer and keep \"Add application directory to your system path\" checked, then restart Unify so it sees the new PATH. Ask an agent to run imaging_tools_status to confirm.",
-			"kind": "manual",
+			"detail": "Unify installs it for you; Windows may ask for permission once. If that failed, run the Windows x64 installer from the download page, keep \"Add application directory to your system path\" ticked, then choose Run setup again below.",
+			"kind": "auto",
+			"install": { "winget": "ImageMagick.ImageMagick", "brew": "imagemagick" },
+			"check": { "command": "magick" },
 			"open": "https://imagemagick.org/script/download.php#windows"
 		},
 		{
-			"id": "png-tools",
-			"title": "Add pngquant and oxipng (optional)",
-			"detail": "For smaller PNGs. Put both .exe files in a folder on your PATH.",
-			"kind": "manual",
-			"open": "https://pngquant.org/"
+			"id": "oxipng",
+			"title": "Install oxipng",
+			"detail": "Makes PNGs smaller without losing quality. Unify installs it for you.",
+			"kind": "auto",
+			"install": { "winget": "Shssoichiro.Oxipng", "brew": "oxipng" },
+			"check": { "command": "oxipng" }
 		},
 		{
-			"id": "rembg",
-			"title": "Add rembg for background removal (optional)",
-			"detail": "Run this in a terminal, then run rembg once so it downloads its model.",
+			"id": "pngquant",
+			"title": "Install pngquant",
+			"detail": "Makes PNGs much smaller by reducing colours. The install script downloads it into ${PACK}/data/bin/pngquant. If that failed, check your internet connection and choose Run setup again below.",
+			"kind": "auto",
+			"check": { "exists": "${PACK}/data/bin/pngquant/pngquant.exe", "command": "pngquant" },
+			"open": "https://pngquant.org/",
+			"platforms": ["win32"]
+		},
+		{
+			"id": "pngquant-mac",
+			"title": "Install pngquant",
+			"detail": "Makes PNGs much smaller by reducing colours. Unify installs it with Homebrew.",
+			"kind": "auto",
+			"install": { "brew": "pngquant" },
+			"check": { "command": "pngquant" },
+			"platforms": ["darwin"]
+		},
+		{
+			"id": "pngquant-linux",
+			"title": "Add pngquant (optional)",
+			"detail": "Makes PNGs much smaller by reducing colours. Install it with your package manager (command below), then choose Run setup again.",
 			"kind": "manual",
-			"copy": "pip install \"rembg[cli]\""
+			"optional": true,
+			"copy": "sudo apt install pngquant",
+			"check": { "command": "pngquant" },
+			"platforms": ["linux"]
 		},
 		{
 			"id": "realesrgan",
-			"title": "Add Real-ESRGAN for upscaling (optional)",
-			"detail": "Unzip realesrgan-ncnn-vulkan from the releases page and set the DSH_REALESRGAN_PATH environment variable to its .exe.",
-			"kind": "manual",
+			"title": "Install Real-ESRGAN for upscaling",
+			"detail": "The install script downloads it (about 45 MB) into ${PACK}/data/bin/realesrgan. It runs on your graphics card. If the download failed, check your internet connection and choose Run setup again below.",
+			"kind": "auto",
+			"check": { "exists": ["${PACK}/data/bin/realesrgan/realesrgan-ncnn-vulkan.exe", "${PACK}/data/bin/realesrgan/realesrgan-ncnn-vulkan"] },
 			"open": "https://github.com/xinntao/Real-ESRGAN/releases"
+		},
+		{
+			"id": "rembg",
+			"title": "Add background removal (optional)",
+			"detail": "Lets agents cut a subject out onto a transparent background. Needs Python 3.10 or newer (get it from python.org and tick \"Add python.exe to PATH\"). Choose Install; the first cut-out also downloads a model of about 170 MB.",
+			"kind": "auto",
+			"optional": true,
+			"install": { "pip": "rembg[cli]" },
+			"check": { "command": "rembg" },
+			"open": "https://www.python.org/downloads/"
 		}
 	]
 }

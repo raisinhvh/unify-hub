@@ -31,4 +31,6 @@ Headless image editing with ImageMagick: trim, resize, pad, outline, drop shadow
 
 ## Install
 
-In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. There is no install script. The **Finish setup** checklist (from `setup.json`) lists the image tools to install: ImageMagick 7 (required) and optional extras.
+In Unify, open the Hub, find this pack and choose Install. Unify downloads `pack.ts` from this folder, compiles it and writes it to your toolpacks folder. It installs ImageMagick 7 and oxipng (winget on Windows, Homebrew on macOS), then runs `install.js`, which downloads pngquant (Windows) and Real-ESRGAN into `<pack>/data/bin`. On macOS pngquant comes from Homebrew.
+
+Background removal is optional: it needs Python 3.10 or newer (<https://www.python.org/downloads/>, tick "Add python.exe to PATH"), then choose Install on that step of the **Finish setup** card, which runs `pip install "rembg[cli]"`.

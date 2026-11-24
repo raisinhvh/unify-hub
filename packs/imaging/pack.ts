@@ -152,12 +152,19 @@ async function listDirs(dir: string): Promise<string[]> {
     catch { return []; }
 }
 
-/** Candidate executables named `name` on PATH, after an explicit env override. */
-function onPath(name: string, envVar: string): string[] {
+/**
+ * Candidate executables named `name`: an explicit env override, then the pack's own data/bin/<folder> (where the
+ * install script unzips pngquant and Real-ESRGAN), then PATH, then WinGet's Links folder (a winget install is not on
+ * PATH until the app restarts).
+ */
+function onPath(name: string, envVar: string, folder?: string): string[] {
     const found: string[] = [];
     if (process.env[envVar]) found.push(process.env[envVar]!);
     const exe = process.platform === 'win32' ? `${name}.exe` : name;
+    const dataDir = state.ctx?.dataDir;
+    if (dataDir) found.push(...(folder ? [join(dataDir, 'bin', folder, exe)] : []), join(dataDir, 'bin', exe));
     for (const dir of (process.env.PATH ?? '').split(delimiter)) if (dir) found.push(join(dir, exe));
+    if (process.platform === 'win32' && process.env.LOCALAPPDATA) found.push(join(process.env.LOCALAPPDATA, 'Microsoft', 'WinGet', 'Links', exe));
     return found;
 }
 
@@ -195,10 +202,10 @@ async function findOptional(): Promise<Optional> {
         }
     } else pythonScripts.push(join(homedir(), '.local', 'bin', 'rembg'));
     return {
-        pngquant: first(onPath('pngquant', 'DSH_PNGQUANT_PATH')),
+        pngquant: first(onPath('pngquant', 'DSH_PNGQUANT_PATH', 'pngquant')),
         oxipng: first(onPath('oxipng', 'DSH_OXIPNG_PATH')),
         rembg: first([...onPath('rembg', 'DSH_REMBG_PATH'), ...pythonScripts]),
-        realesrgan: first(onPath('realesrgan-ncnn-vulkan', 'DSH_REALESRGAN_PATH')),
+        realesrgan: first(onPath('realesrgan-ncnn-vulkan', 'DSH_REALESRGAN_PATH', 'realesrgan')),
     };
 }
 
@@ -902,18 +909,18 @@ const pack: ToolpackDefinition = {
                 } finally { await rm(temp, { force: true }).catch(() => undefined); }
                 let after = (await stat(output)).size;
                 if (after > before && !samePath(file, output)) { await copyFile(file, output); after = before; steps.push('kept original (smaller)'); }
-                const tips = ext === '.png' && (!state.optional.pngquant || !state.optional.oxipng) ? ' Install pngquant and oxipng for much smaller PNGs.' : '';
+                const tips = ext === '.png' && (!state.optional.pngquant || !state.optional.oxipng) ? ' pngquant or oxipng is missing; open the Imaging pack in Unify and choose Run setup again for much smaller PNGs.' : '';
                 return done(args, [output], deadline, { note: `${formatBytes(before)} -> ${formatBytes(after)} (${before ? Math.round((1 - after / before) * 100) : 0}% smaller) via ${steps.join(', ')}.${tips}` });
             },
         },
         {
             name: 'remove_background',
-            description: 'Cut out the subject onto transparency with rembg (AI). Requires rembg: `pip install "rembg[cli]"`. Output is PNG.',
+            description: 'Cut out the subject onto transparency with rembg (AI). Requires rembg (optional step on the Imaging setup card, or `pip install "rembg[cli]"`). Output is PNG.',
             inputSchema: schema({ ...io, model: { type: 'string', enum: ['u2net', 'isnet-general-use', 'isnet-anime', 'birefnet-general', 'u2net_human_seg'], description: 'Default isnet-general-use; isnet-anime for cartoon art.' } }),
             async run(args) {
                 const file = await input(args);
                 state.optional = await findOptional();
-                if (!state.optional.rembg) throw new Error('rembg is not installed. Run `pip install "rembg[cli]"` (Python 3.10+) in a terminal, or set DSH_REMBG_PATH, then retry.');
+                if (!state.optional.rembg) throw new Error('rembg is not installed. In Unify, open the Imaging pack\'s Finish setup card and choose Install on "Add background removal" (needs Python 3.10+ from https://www.python.org/downloads/). Or run `pip install "rembg[cli]"` in a terminal, or set DSH_REMBG_PATH, then retry.');
                 const model = optionalString(args, 'model') ?? 'isnet-general-use';
                 if (!['u2net', 'isnet-general-use', 'isnet-anime', 'birefnet-general', 'u2net_human_seg'].includes(model)) throw new Error('Unknown model.');
                 const output = await outputFor(args, file, '_cutout', '.png');
@@ -932,7 +939,7 @@ const pack: ToolpackDefinition = {
                 const file = await input(args);
                 state.optional = await findOptional();
                 const exe = state.optional.realesrgan;
-                if (!exe) throw new Error('realesrgan-ncnn-vulkan was not found. Download the Windows zip from https://github.com/xinntao/Real-ESRGAN/releases, unzip it, and set DSH_REALESRGAN_PATH to realesrgan-ncnn-vulkan.exe (keep its models folder beside it).');
+                if (!exe) throw new Error(`realesrgan-ncnn-vulkan was not found. The install script puts it in ${join(state.ctx?.dataDir ?? '<pack>/data', 'bin', 'realesrgan')}; open the Imaging pack in Unify and choose Run setup again. Or download the zip from https://github.com/xinntao/Real-ESRGAN/releases, unzip it there (keep its models folder beside the program), or set DSH_REALESRGAN_PATH.`);
                 const scale = integer(args, 'scale', 4, 2, 4);
                 const model = optionalString(args, 'model') ?? 'anime';
                 if (model !== 'anime' && model !== 'photo') throw new Error('model must be anime or photo.');
