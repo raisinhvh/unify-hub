@@ -130,7 +130,7 @@
         "premiere_add_tracks"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793769102882,
+      "updatedAt": 1795502659000,
       "publishedAt": 1793769102882,
       "license": "MIT"
     },
@@ -171,7 +171,7 @@
         "roblox_import_animation"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793859649137,
+      "updatedAt": 1795502659000,
       "publishedAt": 1793859649137,
       "license": "MIT"
     },
@@ -198,7 +198,7 @@
         "sound_export"
       ],
       "version": "1.0.0",
-      "updatedAt": 1793769117790,
+      "updatedAt": 1795502659000,
       "publishedAt": 1793769117790,
       "license": "MIT"
     }
